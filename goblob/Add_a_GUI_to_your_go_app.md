@@ -1,4 +1,5 @@
-[只需要五步，为你的Golang应用程序增加GUI](https://medium.com/@social_57971/how-to-add-a-gui-to-your-golang-app-in-5-easy-steps-c25c99d4d8e0)
+[原文](https://medium.com/@social_57971/how-to-add-a-gui-to-your-golang-app-in-5-easy-steps-c25c99d4d8e0)
+
 构建一个Golang应用程序是简单而有趣的。但是有时你想要锦上添花：GUI
 在这个故事中，我将介绍如何使用 [astilectron](https://github.com/asticode/go-astilectron)和它的 [bootstrap](https://github.com/asticode/go-astilectron-bootstrap) 以及 [bundler](https://github.com/asticode/go-astilectron-bundler) 来给一个简单的Golang添加一个GUI
 
