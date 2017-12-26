@@ -3,6 +3,7 @@
 Go反射：根据类型创建对象-第一部分(基本类型)
 > 本文是用Golang根据类型创建对象系列两部分博客的第一部分
 > 该部分讨论创建基本类型
+
 ![Golang Gopher](https://cdn-images-1.medium.com/max/1000/1*65iXGLup5igJDZXA1oOFXw.png)
 
 Golang的反射包提供了基本的API来改变程序的控制流，该程序基于将要处理的对象的类型。
