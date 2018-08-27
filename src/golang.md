@@ -21,3 +21,23 @@ const (
   REJECT
 )
 ```
+
+# 1.1 定义数量级
+这是在 [Effective Go](https://golang.org/doc/effective_go.html#constants) 中一个非常好定义数量级的示例：
+```golang
+type ByteSize float64
+
+const (
+    _           = iota                   // ignore first value by assigning to blank identifier
+    KB ByteSize = 1 << (10 * iota) // 1 << (10*1)
+    MB                                   // 1 << (10*2)
+    GB                                   // 1 << (10*3)
+    TB                                   // 1 << (10*4)
+    PB                                   // 1 << (10*5)
+    EB                                   // 1 << (10*6)
+    ZB                                   // 1 << (10*7)
+    YB                                   // 1 << (10*8)
+)
+```
+
+
