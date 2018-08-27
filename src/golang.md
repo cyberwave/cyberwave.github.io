@@ -5,6 +5,7 @@ const (
   UNCHECK   = iota
   CHECKED
   REJECT
+)
 ```
 在上述代码中，本期望获得的值分别是：`-1,0,1,2` 实际的输出却是 `-1` `1` `2` `3`
 
@@ -18,4 +19,5 @@ const (
   UNCHECK
   CHECKED
   REJECT
+)
 ```
