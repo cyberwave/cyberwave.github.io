@@ -15,6 +15,7 @@ const (
 
 上述代码可以改为:
 ```golang
+const (
   CHECK_ALL = iota - 1
   UNCHECK
   CHECKED
