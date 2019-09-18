@@ -7,3 +7,14 @@
 6. [v2ray安装及mac/android下client设置](https://www.jianshu.com/p/fdecbbf18e31)
 7. [V2Ray完全使用教程](https://zshttp.com/1310.html)
 8. [一键脚本](https://github.com/233boy/v2ray)
+
+# 域名注册
+https://sg.godaddy.com/zh/
+https://wanwang.aliyun.com/
+https://dnspod.cloud.tencent.com/
+
+# 服务器空间
+https://www.vultr.com/
+https://bandwagonhost.com/ (有时候被墙无法访问)
+https://www.aliyun.com/ （注册之后就可以买了）
+可以点进去后看看价格
