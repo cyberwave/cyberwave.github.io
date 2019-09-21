@@ -107,7 +107,7 @@ func ConvertAToB(obj A) B {
 
 我个人使用 [JWT](https://jwt.io/)，因为我为我们的客户端([ATNM](https://www.airtouchmedia.com/))写web服务，大部分明为手机app 或 [CMS](https://en.wikipedia.org/wiki/Content_management_system) ，如果你想了解更多关于 [Web 认证 API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API)，Mozilla 有一篇不错的文件，它解释得非常好。
 
-![KeyAU_47qONLdkwW](https://miro.medium.com/max/1500/0*KeyAU_47qONLdkwW.png)
+![KeyAU_47qONLdkwW](https://github.com/cyberwave/cyberwave.github.io/blob/master/images/0_KeyAU_47qONLdkwW.png)
 
 什么是 JWT?
 
