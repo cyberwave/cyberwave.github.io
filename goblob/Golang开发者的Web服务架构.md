@@ -1,3 +1,5 @@
+[Web Service Architecture for Golang Developers](https://medium.com/@boobo94/web-service-architecture-for-golang-developers-a4147b8141ff)
+
 Web服务架构是构建每个项目的第一阶段，这就像是你建造一个房屋前，先有计划图纸一样。
 
 本文将向你显现，在使用Golang创建一个简单的web服务时，我是如何构架项目的。保持一个简单而直观的架构是非常重要的，我们知道，在 golang 中你可以通过引用包名来调用方法。
