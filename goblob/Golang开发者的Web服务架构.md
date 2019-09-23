@@ -77,7 +77,7 @@ http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request){
 
 ## adaper.go
 
-在客户端和web服务间的交互中，它们发送和接收数据，但是同时，可能有一个第三主的 [API]() 参与，另一个应用，或其他数据库。请记住这些，在将数据从一个应用程序发送到另一个中，在新的 app 接收它之前，我们需要转换数据格式。这个转换函数可以写在 *adapter.go* 文件中。
+在客户端和web服务间的交互中，它们发送和接收数据，但是同时，可能有一个第三方的 [API](https://boobo94.xyz/webservice/RESTful-api-resources/) 参与，另一个应用，或其他数据库。请记住这些，在将数据从一个应用程序发送到另一个中，在新的 app 接收它之前，我们需要转换数据格式。这个转换函数可以写在 *adapter.go* 文件中。
 
 例如，如果我需要将结构体 `A` 转换为结构体 `B`，我需要一个适配函数，它看起来像：
 
