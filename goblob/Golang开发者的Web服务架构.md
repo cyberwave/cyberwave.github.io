@@ -1,5 +1,6 @@
 @[TOC]
 
+[原文博客](https://boobo94.xyz/web-service/webservice-architecture-golang/)
 [原文][Web Service Architecture for Golang Developers](https://medium.com/@boobo94/web-service-architecture-for-golang-developers-a4147b8141ff)
 
 Web服务架构是构建每个项目的第一阶段，这就像是你建造一个房屋前，先有计划图纸一样。
