@@ -415,7 +415,7 @@ CORS 协议最初要求该行为，但[后来更改为不再需要它](https://g
 - [`XMLHttpRequest`](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest)
 - [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
 - [Using CORS with All (Modern) Browsers](http://www.kendoui.com/blogs/teamblog/posts/11-10-03/using_cors_with_all_modern_browsers.aspx)
-- Using CORS - HTML5 Rocks
+- [Using CORS - HTML5 Rocks](http://www.html5rocks.com/en/tutorials/cors/)
 - [Code Samples Showing `XMLHttpRequest` and Cross-Origin Resource Sharing](https://arunranga.com/examples/access-control/)
 - [Client-Side & Server-Side (Java) sample for Cross-Origin Resource Sharing (CORS)](https://github.com/jackblackevo/cors-jsonp-sample)
 - [Cross-Origin Resource Sharing From a Server-Side Perspective (PHP, etc.)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Server-Side_Access_Control)
