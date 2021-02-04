@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>grep on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/grep/</link>
+    <description>Recent content in grep on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Thu, 04 Feb 2021 19:56:04 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/grep/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Grep Search for Strings</title>
+      <link>https://cyberwave.github.io/post/grep-search-for-strings/</link>
+      <pubDate>Thu, 04 Feb 2021 19:56:04 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/grep-search-for-strings/</guid>
+      <description>[原文] How to use grep to search for strings in files on the shell 1 GREP 命令 - 概览 grep 命令，意思是 全局正则表达式输出(global regular expression print)，仍然是Linux终端环境中功</description>
+    </item>
+    
+  </channel>
+</rss>

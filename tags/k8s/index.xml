@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>k8s on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/k8s/</link>
+    <description>Recent content in k8s on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Thu, 04 Feb 2021 13:50:07 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/k8s/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>掌握k8s的47个高级教程</title>
+      <link>https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/</link>
+      <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/</guid>
+      <description>[译] 47 advanced tutorials for mastering Kubernetes 如果开始学习 Kubernetes，并不难找到高质量的初学者教程。但是，当你掌握了基础，在哪儿可以找到更高级的学习资源？ 官方</description>
+    </item>
+    
+  </channel>
+</rss>

@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Grep Search for Strings | 听雪者的博客</title>
+    <meta property="og:title" content="Grep Search for Strings - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-04T19:56:04&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-04T19:56:04&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Grep Search for Strings">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/grep-search-for-strings/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">Go语言(golang)、区块链!</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#1-grep-命令---概览">1 GREP 命令 - 概览</a></li>
+    <li><a href="#2-基本的-grep-命令语法">2 基本的 grep 命令语法</a></li>
+    <li><a href="#3-如何使用-grep-命令搜索文件">3 如何使用 grep 命令搜索文件</a></li>
+    <li><a href="#4-递归使用-grep">4 递归使用 grep</a></li>
+    <li><a href="#5-使用-grep-仅搜索单词">5 使用 grep 仅搜索单词</a></li>
+    <li><a href="#6-使用-grep-搜索两个不同的单词">6 使用 <code>grep</code> 搜索两个不同的单词</a></li>
+    <li><a href="#7-统计匹配单词的行数">7 统计匹配单词的行数</a></li>
+    <li><a href="#8-grep-反向匹配">8 Grep 反向匹配</a></li>
+    <li><a href="#9-仅列出匹配文件的名字">9 仅列出匹配文件的名字</a></li>
+    <li><a href="#10-如何使用-grep-命令处理多个搜索模式">10 如何使用 grep 命令处理多个搜索模式</a></li>
+    <li><a href="#11-如何将grep输出限制为特定的行数">11 如何将grep输出限制为特定的行数</a></li>
+    <li><a href="#12-如何使用-grep-从文件中获取模式">12 如何使用 <code>grep</code> 从文件中获取模式</a></li>
+    <li><a href="#13-如何使grep仅显示与搜索模式完全匹配的行">13 如何使grep仅显示与搜索模式完全匹配的行</a></li>
+    <li><a href="#14-如何强制grep在输出中不显示任何内容">14 如何强制grep在输出中不显示任何内容</a></li>
+    <li><a href="#15-如何使grep显示不包含搜索模式的文件的名称">15 如何使grep显示不包含搜索模式的文件的名称</a></li>
+    <li><a href="#16-如何抑制-grep-产生的错误消息">16 如何抑制 grep 产生的错误消息</a></li>
+    <li><a href="#17-如何使grep递归搜索目录">17 如何使grep递归搜索目录</a></li>
+    <li><a href="#18-如何使grep终止以null字符为文件名">18 如何使grep终止以NULL字符为文件名</a></li>
+    <li><a href="#19-更多-grep-命令的例子">19 更多 GREP 命令的例子</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Grep Search for Strings</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月4日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/linux'>linux</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>[原文] <a href="https://www.howtoforge.com/tutorial/linux-grep-command/">How to use grep to search for strings in files on the shell</a></p>
+<h2 id="1-grep-命令---概览">1 GREP 命令 - 概览</h2>
+<p>grep 命令，意思是 <strong>全局正则表达式输出(global regular expression print)</strong>，仍然是Linux终端环境中功能最丰富的命令之一。它恰好是一个非常强大的程序，可以使用户能够根据对复杂的规则对输入进行排序，因此，它成为众多命令链中相当流行的一环。<code>grep</code> 命令主要用于搜索文本或在任何给定文件中搜索包含与所提供的单词/字符串匹配的行。<code>grep</code> 默认打印匹配的行，并且它可用于搜索与一个/多个正则表达式匹配的文本行，而且不会引起任何干扰，并且仅输出匹配的行。</p>
+<h2 id="2-基本的-grep-命令语法">2 基本的 grep 命令语法</h2>
+<p>grep 命令的基本语法如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep <span style="color:#d14">&#39;word&#39;</span> filename
+grep <span style="color:#d14">&#39;word&#39;</span> file1 file2 file3
+grep <span style="color:#d14">&#39;string1 string2&#39;</span> filename
+cat otherfile | grep <span style="color:#d14">&#39;something&#39;</span>
+<span style="color:#0086b3">command</span> | grep <span style="color:#d14">&#39;something&#39;</span>
+<span style="color:#0086b3">command</span> option1 | grep <span style="color:#d14">&#39;data&#39;</span>
+grep --color <span style="color:#d14">&#39;data&#39;</span> fileName
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="3-如何使用-grep-命令搜索文件">3 如何使用 grep 命令搜索文件</h2>
+<p>在第一个例子中，在 Linux 密码文件中搜索用户 “tom&quot;：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep tom /etc/passwd
+</code></pre></td></tr></table>
+</div>
+</div><p>下面是简单的输出：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">tom:x:1000:1000:tom,,,:/home/tom:/bin/bash
+</code></pre></td></tr></table>
+</div>
+</div><p>可以使用选项来让 <code>grep</code> 忽略大小写，例如，使用 <code>-i</code> 选项匹配 abc, Abc, ABC 和所有可能的组合，输出如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -i <span style="color:#d14">&#34;tom&#34;</span> /etc/passwd
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="4-递归使用-grep">4 递归使用 grep</h2>
+<p>如果目录层次中有一堆文本文件，例如，在 Apache 配置的文件 <code>/etc/apache2/</code> 中，你想要找到定义了指定文本的文件，使用 <code>grep</code> 命令的 <code>-r</code> 选项进行递归搜索。这将在目录 <code>/etc/apache2/</code> 及其所有子目录中为字符串“ 197.167.2.9”（如下所示）执行递归搜索操作：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -r <span style="color:#d14">&#34;mydomain.com&#34;</span> /etc/apache2/
+</code></pre></td></tr></table>
+</div>
+</div><p>另外，还可以使用如下的命令：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -R <span style="color:#d14">&#34;mydomain.com&#34;</span> /etc/apache2/
+</code></pre></td></tr></table>
+</div>
+</div><p>以下是在Nginx服务器上进行类似搜索的示例输出：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -r <span style="color:#d14">&#34;mydomain.com&#34;</span> /etc/nginx/
+/etc/nginx/sites-available/mydomain.com.vhost:        <span style="color:#000;font-weight:bold">if</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#008080">$http_host</span> !<span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">&#34;www.mydomain.com&#34;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>这里，你会发现在该文件所在的文件名( 例如 /etc/nginx/sites-available/mydomain.vhost )的不同行上看到 mydomain.com 的结果。使用 <code>-h</code> 选项可以很容易地抑制在输出数据中包含文件名(如下所述)：<code>grep -h -R &quot;mydomain.com&quot; /etc/nginx/</code>。下面是样例输出</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -r <span style="color:#d14">&#34;mydomain.com&#34;</span> /etc/nginx/
+<span style="color:#000;font-weight:bold">if</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#008080">$http_host</span> !<span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">&#34;www.mydomain.com&#34;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="5-使用-grep-仅搜索单词">5 使用 grep 仅搜索单词</h2>
+<p>当搜索 abc，grep 会匹配所有包含 abc 的内容，即，kbcabc, abc123和其他其他的组合，不遵守单词边界。可以强制 <code>grep</code> 命令选择仅包含构成整个单词（这仅匹配 abc 单词）的那些，如下所示：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -w <span style="color:#d14">&#34;abc&#34;</span> file
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="6-使用-grep-搜索两个不同的单词">6 使用 <code>grep</code> 搜索两个不同的单词</h2>
+<p>为了搜索两个不同的单词，必须使用 <code>egrep</code> 命令，如下所示：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">egrep -w <span style="color:#d14">&#39;word1 | word2&#39;</span> /path/to/file
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="7-统计匹配单词的行数">7 统计匹配单词的行数</h2>
+<p><code>grep</code> 命令可以使用 <code>-c</code> (count)选项报告每个文件中与特定模式匹配的次数：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -c <span style="color:#d14">&#39;word&#39;</span> /path/to/file
+</code></pre></td></tr></table>
+</div>
+</div><p>另外，用户可以使用 <code>-n</code> 选项在每个输出行之前获取该行在文件中的行数：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -n <span style="color:#d14">&#39;root&#39;</span> /etc/passwd
+</code></pre></td></tr></table>
+</div>
+</div><p>示例输出如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">1:root:x:0:0:root:/root:/bin/bash
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="8-grep-反向匹配">8 Grep 反向匹配</h2>
+<p>用户可以使用 <code>-v</code> 选项打印反向匹配，意思是它将仅匹配那些不包含给定单词的行。例如，使用下面的命令打印所有不包含单词 par 的行：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -v par /path/to/file
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="9-仅列出匹配文件的名字">9 仅列出匹配文件的名字</h2>
+<p>你必须使用 <code>-l</code> 选项列出包含特定单词的文件名，例如单词 &lsquo;primary&rsquo;，使用下面的命令：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -l <span style="color:#d14">&#39;primary&#39;</span> *.c
+</code></pre></td></tr></table>
+</div>
+</div><p>最后，可以使用下面的命令强制 grep 以特定的颜色显示输出</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep --color  root /etc/passwd
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="10-如何使用-grep-命令处理多个搜索模式">10 如何使用 grep 命令处理多个搜索模式</h2>
+<p>有这种情况，你可能希望在给定的文件(或多个文件)中搜索多个模式。在这样的场景中，你应该使用 <code>grep</code> 提供的 <code>-e</code> 命令行选项。</p>
+<p>例如，假设你想要在当前目录中的 所有文本文件中搜索单词 &ldquo;how&rdquo;，&ldquo;to&rdquo;，和 &ldquo;forge&rdquo;，你可以这样做：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -e how -e to -e forge *.txt
+</code></pre></td></tr></table>
+</div>
+</div><p>命令行选项 <code>-e</code> 在模式是以连字符号(-)开头的场景中也很帮助。例如，如果你想搜索 ”-how&quot;，下面的命令无济于事：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -how *.txt
+</code></pre></td></tr></table>
+</div>
+</div><p>这就是 <code>-e</code> 命令行选项出场的时候了，该命令可以了解您在这种情况下到底要尝试搜索的内容：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -e -how *.txt
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="11-如何将grep输出限制为特定的行数">11 如何将grep输出限制为特定的行数</h2>
+<p>如果您想将grep输出限制为特定的行数，你可以使用 <code>-m</code> 选项来做这些，例如，假如你想在 <em>testfile1.txt</em> 文件中搜索单词 &ldquo;how&rdquo;，它包含下列的行：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-txt" data-lang="txt">myname: $ cat testfile1.txt
+how are you?
+how is your friend?
+how have you been?
+how is everyone else?
+myname: $
+</code></pre></td></tr></table>
+</div>
+</div><p>但要求 <code>grep</code> 在找到包含搜索模式的3行后停止搜索，可以运行以下命令来做这些：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep <span style="color:#d14">&#34;how&#34;</span> -m3 testfile1.txt
+</code></pre></td></tr></table>
+</div>
+</div><p>下面是命令的 man 手册页的内容：</p>
+<blockquote>
+<p>If the input is standard input from a regular file, and NUM matching lines are output, grep ensures that the standard input is positioned to just after the last matching line before exiting, regardless of the presence of trailing context lines. <strong>This enables a calling process to resume a search</strong>.</p>
+</blockquote>
+<p>因此，假如你有一个具有循环的 bash 脚本，并且想在每次循环迭代中获取一个匹配项，那么使用 <code>grep -m</code> 就足够了。</p>
+<h2 id="12-如何使用-grep-从文件中获取模式">12 如何使用 <code>grep</code> 从文件中获取模式</h2>
+<p>如果你想，你也可以使 <code>grep</code> 命令从文件中获取模式。工具的 <code>-f</code> 选项可以让你做这些。</p>
+<p>例如，假如你想要在当前目录中搜索所有 .txt 文件中的 “how&quot; 和 ”to&quot; 单词，但是想要通过一个名为 “input&quot; 的文件来提供这些输入字符串：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -f input *.txt
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="13-如何使grep仅显示与搜索模式完全匹配的行">13 如何使grep仅显示与搜索模式完全匹配的行</h2>
+<p>到目前为止，我们已经看到默认情况下grep会匹配并显示包含搜索模式的所有的行。但是如果需求是使 <code>grep</code> 仅显示完全匹配搜索模式的那些行呢。这可以使用 <code>-x</code> 选项来完成。</p>
+<p>假如 <em>testfile1.txt</em> 包含如下内容</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-txt" data-lang="txt">how are you?
+He asked me how are you?
+how are you? And how is your friend?
+</code></pre></td></tr></table>
+</div>
+</div><p>你想要搜索的是 “how are you?&quot;。所以为了确保 grep 仅显示完全匹配这个模式的行，以下面的方式使用它：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -X <span style="color:#d14">&#34;how are you?&#34;</span> *.txt
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="14-如何强制grep在输出中不显示任何内容">14 如何强制grep在输出中不显示任何内容</h2>
+<p>可能会有这种情况，你不需要 grep 命令输出任何内容。相反，您只是想知道根据命令的退出状态，是否发现有匹配项。可以通过 <code>-q</code> 选项来实现。</p>
+<p>当 <code>-q</code> 选项没有任何输出，工具的结束状态可以通过 <code>echo $?</code> 命令来确实。在 grep 的例子中，如果成功(意味着找到匹配项)，命令的结束状态是 <code>0</code>，当没有发现匹配项时，它的结束状态是 <code>1</code>。</p>
+<p>下面的内容显示了成功和未成功的场景：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-txt" data-lang="txt">hostname: -$ grep -q &#34;how are you?&#34; *.txt
+hostname: -$ echo $?
+0
+hostname: -$ grep -q &#34;I am file&#34; *.txt
+hostname: -$ echo $?
+1
+hostname: -$ echo $?
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="15-如何使grep显示不包含搜索模式的文件的名称">15 如何使grep显示不包含搜索模式的文件的名称</h2>
+<p>默认地，命令 <code>grep</code> 显示包含搜索模式(命令行也一样)的文件名。这很符合逻辑，正如这个工具的预期一样。然而，可能有需要获得不包含搜索模式的那些文件的情况。</p>
+<p>这也是 grep 可以做到的 &ndash; 使用 <code>-L</code> 选项可以做这些。所以，例如，在当前的目录中找到所有不包含单词 &ldquo;how&rdquo; 的文本文件，你可以使用下列命令：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -L <span style="color:#d14">&#34;how&#34;</span> *.txt
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="16-如何抑制-grep-产生的错误消息">16 如何抑制 grep 产生的错误消息</h2>
+<p>如果需要，还可以强制grep使输出中不显示的所有错误消息。可以通过使用 <code>-s</code> 选项实现。例如，请考虑以下情况，其中grep会产生与其遇到的目录有关的错误/<strong>告警</strong>：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">hostname: -$ grep <span style="color:#d14">&#34;how&#34;</span> *
+grep: examples: Is a directory
+</code></pre></td></tr></table>
+</div>
+</div><p>所以在这场景中，<code>-s</code> 选项会有帮助 。</p>
+<h2 id="17-如何使grep递归搜索目录">17 如何使grep递归搜索目录</h2>
+<p>从上一点中的示例可以清楚地看出，默认情况下grep命令不会进行递归搜索。为了确保 grep 搜索是递归的，使用 <code>-d</code> 选项并将值 <code>recurse</code> 传递给它。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -d recurse <span style="color:#d14">&#34;how&#34;</span> *
+</code></pre></td></tr></table>
+</div>
+</div><p><strong>注意1：</strong> 上一节讨论的与目录相关的错误/告警消息也可以使用 <code>-d</code> 选项忽略掉 &ndash; 你所需要做的就是将 <code>skip</code> 传递给它</p>
+<p><strong>注意2：</strong> 使用 <code>--exclude-dir=[DIR]</code> 选项从递归搜索中将与模式匹配的 DIR 排除</p>
+<h2 id="18-如何使grep终止以null字符为文件名">18 如何使grep终止以NULL字符为文件名</h2>
+<p>正如我们所讨论的，当你仅希望工具在输出中展示文件名时，使用grep 命令的  <code>-l</code> 选项：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -l <span style="color:#d14">&#34;how&#34;</span> *.txt
+</code></pre></td></tr></table>
+</div>
+</div><p>现在，你需要知道的是上面输出中的每个名字都是以换行符分隔/附上的。你可以这样验证：重写向输出到文件，打印文件内容：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-txt" data-lang="txt">grep -l &#34;how&#34; *.txt &gt; output.txt
+cat output.txt
+testfile1.txt
+testfile2.txt
+</code></pre></td></tr></table>
+</div>
+</div><p>所以， <code>cat</code> 命令的输出证明了两个文件名中有换行符的存在。</p>
+<p>但是正如你可能已经知道，换行符也可以是文件名的一部分。所以当处理这类文件名包含换行，他们也被分隔/终止为新的一行，在 grep 输出中这将变得困难(特别是在脚本中访问这些输出)</p>
+<p>如果分隔符/终止符不是换行符，那就更好了。好吧，您将很高兴知道 grep 提供了命令行选项 <code>-Z</code> ，以确保文件名后跟NULL字符而不是换行符。</p>
+<p>所以，在我们的例子中，命令是：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">grep -lZ <span style="color:#d14">&#34;how&#34;</span> .txt
+</code></pre></td></tr></table>
+</div>
+</div><p>以下是您应该了解的相关命令行选项：</p>
+<blockquote>
+<p><strong>-z, &ndash;nul-data</strong></p>
+<p>Treat the input as a set of lines, each terminated by a zero byte (the ASCII NUL character) instead of a newline. Like the -Z or &ndash;null option, this option can be used with commands like sort -z to process arbitrary file names.</p>
+</blockquote>
+<h2 id="19-更多-grep-命令的例子">19 更多 GREP 命令的例子</h2>
+<p>在我们的第二个 GREP 命令教程中，你可以发现更多关于如何使用 Linux 命令的例子</p>
+<ul>
+<li><a href="https://www.howtoforge.com/tutorial/how-to-perform-pattern-search-in-files-using-grep/">How to perform pattern search in files using Grep</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://cyberwave.github.io">听雪者</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://cyberwave.github.io/post/grep-search-for-strings/">https://cyberwave.github.io/post/grep-search-for-strings/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/47-advanced-tutorials-for-mastering-k8s/">掌握k8s的47个高级教程</a></li>
+        
+        <li><a href="/post/understanding-mysql-access-denied-error-inout-docker/">了解Docker容器内外的MySQL拒绝服务错误</a></li>
+        
+        <li><a href="/post/json-ld-building-meaningful-data-apis/">使用Json Ld构建有意义的数据API</a></li>
+        
+        <li><a href="/post/use-hugo-and-github-make-blog/">使用Hugo和GitHub搭建博客</a></li>
+        
+        <li><a href="/about/">关于我</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/grep'>grep</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/grep-search-for-strings/" title="Grep Search for Strings">Grep Search for Strings</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/" title="掌握k8s的47个高级教程">掌握k8s的47个高级教程</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/" title="了解Docker容器内外的MySQL拒绝服务错误">了解Docker容器内外的MySQL拒绝服务错误</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="http://yuedu.baidu.com/ebook/14a722970740be1e640e9a3e" title="Android Gradle权威指南">Android Gradle权威指南</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

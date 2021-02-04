@@ -6,7 +6,25 @@
     <description>Recent content in Categories on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 04 Feb 2021 12:57:58 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/categories/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 04 Feb 2021 19:56:04 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/categories/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>linux</title>
+      <link>https://cyberwave.github.io/categories/linux/</link>
+      <pubDate>Thu, 04 Feb 2021 19:56:04 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/categories/linux/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>k8s</title>
+      <link>https://cyberwave.github.io/categories/k8s/</link>
+      <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/categories/k8s/</guid>
+      <description></description>
+    </item>
+    
     <item>
       <title>mysql</title>
       <link>https://cyberwave.github.io/categories/mysql/</link>

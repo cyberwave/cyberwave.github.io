@@ -143,7 +143,19 @@
     <div class="post-toc-content">
         <nav id="TableOfContents">
   <ul>
-    <li><a href="#在-userlocalhost-和-user172-之间有什么不同">在 <code>user@localhost</code> 和 <code>user@172.%</code> 之间有什么不同？</a></li>
+    <li><a href="#常见错误-在docker映像中未正确处理挂载卷的mysql数据目录">常见错误-在Docker映像中未正确处理挂载卷的MySQL数据目录</a></li>
+    <li><a href="#如何在创建容器时定制初始化数据库">如何在创建容器时定制初始化数据库？</a></li>
+    <li><a href="#在接下来的连接中-mysql-如何验证用户名和密码">在接下来的连接中 MySQL 如何验证用户名和密码？</a></li>
+    <li><a href="#有点常见用户表配置错误">有点常见：用户表配置错误</a>
+      <ul>
+        <li><a href="#在-userlocalhost-和-user172-之间有什么不同">在 <code>user@localhost</code> 和 <code>user@172.%</code> 之间有什么不同？</a></li>
+      </ul>
+    </li>
+    <li><a href="#mysql-排序用户表">MySQL 排序用户表</a></li>
+    <li><a href="#让mysql告诉您帐户的访问权限">让MySQL告诉您帐户的访问权限</a></li>
+    <li><a href="#使用-docker-测试本地和远程连接">使用 Docker 测试本地和远程连接</a></li>
+    <li><a href="#有时候这是最简单最愚蠢的错误">有时候这是最简单最愚蠢的错误</a></li>
+    <li><a href="#常用链接">常用链接</a></li>
   </ul>
 </nav>
     </div>
@@ -242,7 +254,7 @@ EOF
 </ul>
 <p>有些不明显的事情是用户 <code>'userauth'@'localhost'</code>是否与另一个用户相关，比如 <code>'userauth'@'example.com'</code> ? 真的需要引号吗？授予期权(<strong>GRANT OPTION</strong>)是什么意思？我们到底要为数据库的远程用户做什么？</p>
 <p>在这篇文章的其余部分，我想描述一些经验教训和文档指南，希望能为您节省一些时间。</p>
-<h1 id="常见错误-在docker映像中未正确处理挂载卷的mysql数据目录">常见错误-在Docker映像中未正确处理挂载卷的MySQL数据目录</h1>
+<h2 id="常见错误-在docker映像中未正确处理挂载卷的mysql数据目录">常见错误-在Docker映像中未正确处理挂载卷的MySQL数据目录</h2>
 <p>在Docker中，提供一个 MySQL 服务器真正精彩的方式是：</p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
 <table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -289,7 +301,7 @@ $ docker run ... as above
 </code></pre></td></tr></table>
 </div>
 </div><p>这是你必须遵循的模式。在每次使用MySQL配置的实验中，都要采取这三个步骤。</p>
-<h1 id="如何在创建容器时定制初始化数据库">如何在创建容器时定制初始化数据库？</h1>
+<h2 id="如何在创建容器时定制初始化数据库">如何在创建容器时定制初始化数据库？</h2>
 <p>在容器创建中可以运行一些 SQL 文件。示例你可能有一些初始化数据需要加载，或者你希望定制用户配置，或者创建额外的数据库。在初始化容器时，可以使用SQL执行任何操作。</p>
 <p>简单地在容器中挂载目录 <code>/docker-entrypoint-initdb.d/</code>。该容器必须包含 SQL 脚本。在容器初始化过程中，在该目录中的所有的 SQL 脚本都会被执行。</p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
@@ -329,7 +341,7 @@ FLUSH <span style="color:#000;font-weight:bold">PRIVILEGES</span>;
 </code></pre></td></tr></table>
 </div>
 </div><p>这是我的一个尝试，自定义如何创建 <code>userauth</code> 帐户，并尝试不同的选项。</p>
-<h1 id="在接下来的连接中-mysql-如何验证用户名和密码">在接下来的连接中 MySQL 如何验证用户名和密码？</h1>
+<h2 id="在接下来的连接中-mysql-如何验证用户名和密码">在接下来的连接中 MySQL 如何验证用户名和密码？</h2>
 <p>再次看下这个命令：</p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
 <table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -403,9 +415,9 @@ mysql<span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#0
 <li><code>198.51.100.%</code> 匹配前三个八进制为 <code>198</code>,<code>51</code>和<code>100</code>的IPv4地址。</li>
 <li><code>'david'@'198.51.100.0/255.255.255.0'</code> 允许掩码匹配</li>
 </ul>
-<h1 id="有点常见用户表配置错误">有点常见：用户表配置错误</h1>
+<h2 id="有点常见用户表配置错误">有点常见：用户表配置错误</h2>
 <p>显然，MySQL可能会被 <code>mysql.user</code> 并产生不可理解的用户认证失败。</p>
-<h2 id="在-userlocalhost-和-user172-之间有什么不同">在 <code>user@localhost</code> 和 <code>user@172.%</code> 之间有什么不同？</h2>
+<h3 id="在-userlocalhost-和-user172-之间有什么不同">在 <code>user@localhost</code> 和 <code>user@172.%</code> 之间有什么不同？</h3>
 <p>当使用同一个用户从不同的IP地址连接MySQL有什么不同吗？</p>
 <p>是的。</p>
 <p>考虑一下。MySQL 匹配 <code>mysql.user</code>表中的行。即一个来自 <code>localhost</code> 的连接并不区配置 <code>172.%</code> 的行。用户ID <code>user@localhost</code>,<code>user@foo.com</code>,<code>user@'192.168.1.%'</code> 和 <code>user@'172.%'</code> 在 MySQL 的概念中是完全不同的条目。</p>
@@ -422,7 +434,7 @@ mysql<span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#0
      <a href="https://dev.mysql.com/doc/refman/8.0/en/connection-access.html">https://dev.mysql.com/doc/refman/8.0/en/connection-access.html</a></li>
 </ul>
 <p>该页详细描述了 MySQL 是如何验证连接信息的。</p>
-<h1 id="mysql-排序用户表">MySQL 排序用户表</h1>
+<h2 id="mysql-排序用户表">MySQL 排序用户表</h2>
 <p>根据文档：</p>
 <ul>
 <li>无论何时，服务器读取用户表到内存，都排序行。</li>
@@ -431,7 +443,7 @@ mysql<span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#0
 </ul>
 <p>因此 <code>mysql.user</code> 数据库的解释顺序与前面的 <strong>SELECT</strong> 查询不同。</p>
 <p>在某些情况下，您可能需要考虑 <code>user</code> 表的排序顺序。</p>
-<h1 id="让mysql告诉您帐户的访问权限">让MySQL告诉您帐户的访问权限</h1>
+<h2 id="让mysql告诉您帐户的访问权限">让MySQL告诉您帐户的访问权限</h2>
 <p>试试这个：</p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
 <table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -472,11 +484,11 @@ mysql&gt; show grants for userauth@&#39;%&#39;;
 </code></pre></td></tr></table>
 </div>
 </div><p>让MySQL显示给定用户ID的配置相对容易。这意味着，您可以尝试不同的用户ID字符串，查看 MySQL 的响应。</p>
-<h1 id="引号一定是必须的吗">引号一定是必须的吗？</h1>
+<p>##引号一定是必须的吗？</p>
 <p>来自 MySQL 官方文档：</p>
 <p><em>如果用户名和主机名作为未加引号的标识符合法，则不需要用引号引起来。必须用引号指定包含特殊字符的用户名字符串。</em></p>
 <p>引号并不总是必须的。</p>
-<h1 id="使用-docker-测试本地和远程连接">使用 Docker 测试本地和远程连接</h1>
+<h2 id="使用-docker-测试本地和远程连接">使用 Docker 测试本地和远程连接</h2>
 <p>使用 Docker 来同时模拟本地连接 MySQL 和远程访问是非常容易的。<code>mysql/mysql-server</code> 容器包含一个 <code>mysql</code> 程序，我们可以用作该目的。</p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
 <table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -513,7 +525,7 @@ Enter password:
 </code></pre></td></tr></table>
 </div>
 </div><p>这将是一个现有的容器，它正在运行通常连接到 <code>db-userauth</code> 数据库的软件。因此，您可以在该容器中运行 <code>mysql</code>，以诊断该容器是否可以访问数据库容器。</p>
-<h1 id="有时候这是最简单最愚蠢的错误">有时候这是最简单最愚蠢的错误</h1>
+<h2 id="有时候这是最简单最愚蠢的错误">有时候这是最简单最愚蠢的错误</h2>
 <p>在学习了以上所有知识之后，我把问题缩小到这个问题：</p>
 <pre><code class="language-log" data-lang="log">2020-02-18T04:03:18.988Z users:model-users Sequelize params {
   dbname: 'userauth',
@@ -522,7 +534,7 @@ Enter password:
   params: { host: 'db-userauth', port: 3306, dialect: 'mysql' }
 }
 </code></pre><p>仔细看下密码，看到密码的问题了吗？</p>
-<h1 id="常用链接">常用链接</h1>
+<h2 id="常用链接">常用链接</h2>
 <ul>
 <li><a href="https://hub.docker.com/r/mysql/mysql-server">https://hub.docker.com/r/mysql/mysql-server</a>  &ndash; The <code>mysql/mysql-server</code> image
 <ul>
@@ -570,9 +582,9 @@ Enter password:
         
         <li><a href="/about/">关于我</a></li>
         
-        <li><a href="/archives/">归档</a></li>
+        <li><a href="/tools/">工具</a></li>
         
-        <li><a href="/search/">搜索</a></li>
+        <li><a href="/archives/">归档</a></li>
         
     </ul>
 </div>
@@ -697,6 +709,14 @@ if (!doNotTrack) {
 <ul class="widget-list">
     
     <li>
+        <a href="https://cyberwave.github.io/post/grep-search-for-strings/" title="Grep Search for Strings">Grep Search for Strings</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/" title="掌握k8s的47个高级教程">掌握k8s的47个高级教程</a>
+    </li>
+    
+    <li>
         <a href="https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/" title="了解Docker容器内外的MySQL拒绝服务错误">了解Docker容器内外的MySQL拒绝服务错误</a>
     </li>
     
@@ -721,6 +741,10 @@ if (!doNotTrack) {
     
     <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
     
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
     <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
     
 </ul>
@@ -734,7 +758,11 @@ if (!doNotTrack) {
     
     <a href="https://cyberwave.github.io/tags/docker/">docker</a>
     
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
     <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
     
     <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
     

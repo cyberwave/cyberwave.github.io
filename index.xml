@@ -6,7 +6,25 @@
     <description>Recent content on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 04 Feb 2021 12:57:58 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 04 Feb 2021 19:56:04 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Grep Search for Strings</title>
+      <link>https://cyberwave.github.io/post/grep-search-for-strings/</link>
+      <pubDate>Thu, 04 Feb 2021 19:56:04 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/grep-search-for-strings/</guid>
+      <description>[原文] How to use grep to search for strings in files on the shell 1 GREP 命令 - 概览 grep 命令，意思是 全局正则表达式输出(global regular expression print)，仍然是Linux终端环境中功</description>
+    </item>
+    
+    <item>
+      <title>掌握k8s的47个高级教程</title>
+      <link>https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/</link>
+      <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/</guid>
+      <description>[译] 47 advanced tutorials for mastering Kubernetes 如果开始学习 Kubernetes，并不难找到高质量的初学者教程。但是，当你掌握了基础，在哪儿可以找到更高级的学习资源？ 官方</description>
+    </item>
+    
     <item>
       <title>了解Docker容器内外的MySQL拒绝服务错误</title>
       <link>https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/</link>
@@ -41,6 +59,15 @@
       
       <guid>https://cyberwave.github.io/about/</guid>
       <description>内容佚失，以待修补</description>
+    </item>
+    
+    <item>
+      <title>工具</title>
+      <link>https://cyberwave.github.io/tools/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://cyberwave.github.io/tools/</guid>
+      <description></description>
     </item>
     
     <item>
