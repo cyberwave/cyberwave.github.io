@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>docker on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/docker/</link>
+    <description>Recent content in docker on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Thu, 04 Feb 2021 12:57:58 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/docker/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>了解Docker容器内外的MySQL拒绝服务错误</title>
+      <link>https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/</link>
+      <pubDate>Thu, 04 Feb 2021 12:57:58 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/</guid>
+      <description>Understanding MySQL the Access Denied error in or outside a Docker container MySQL基于三个数据对用户身份认证：用户名，连接的另一端的IP地址或域名和提供的密码。它在 mysql.user 表搜索这三个值的匹配项</description>
+    </item>
+    
+  </channel>
+</rss>
