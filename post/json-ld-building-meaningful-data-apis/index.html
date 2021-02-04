@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>使用Json Ld构建有意义的数据API | 听雪者的博客</title>
+    <meta property="og:title" content="使用Json Ld构建有意义的数据API - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-04T10:40:44&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-04T10:40:44&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="使用Json Ld构建有意义的数据API">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">Go语言(golang)、区块链!</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#映射到意义">映射到意义</a></li>
+    <li><a href="#为-context-编码">为 @context 编码</a>
+      <ul>
+        <li><a href="#expansion">Expansion</a></li>
+        <li><a href="#compaction">Compaction</a></li>
+      </ul>
+    </li>
+    <li><a href="#代码">代码</a></li>
+    <li><a href="#有意义的个人api">有意义的个人API</a>
+      <ul>
+        <li><a href="#meetup">Meetup</a></li>
+        <li><a href="#twitter">Twitter</a></li>
+        <li><a href="#linkedin">LinkedIn</a></li>
+      </ul>
+    </li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">使用Json Ld构建有意义的数据API</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月4日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/json'>json</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>[原文] [译] <a href="https://rollout.io/blog/json-ld-building-meaningful-data-apis/">https://rollout.io/blog/json-ld-building-meaningful-data-apis/</a></p>
+<p>每个人都喜欢 <a href="http://json.org/">JSON</a></p>
+<p>然而，JSON 本身是相当无意义的。好吧，它是有意义的，但这仅对这种格式的源创建者来说。它们可以通过文档、对话或使用来共享这一含义，但这些含义通常存在于与您正在查看的JSON文档相距甚远的地方。</p>
+<p>如果意义本身被直接编码到文档中呢？如果 JSON 文档中的每个键都有自己独特的标识，您可以查找（因为web）并阅读其含义，那会怎么样？这不是很狡猾吗？</p>
+<p>[推特：如果 JSON 文档中的每个键都有它唯一的标识，你可以查找并阅读，会怎么样呢？]</p>
+<p>当然，实际上这是相当有可能的。</p>
+<p>下面是一个相当典型的“人”信息，用JSON写成英文键名(为了匹配本文的内容)：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;first_name&#34;</span>: <span style="color:#d14">&#34;Benjamin&#34;</span>,
+  <span style="color:#000080">&#34;last_name&#34;</span>: <span style="color:#d14">&#34;Young&#34;</span>,
+  <span style="color:#000080">&#34;alias&#34;</span>: <span style="color:#d14">&#34;BigBlueHat&#34;</span>,
+  <span style="color:#000080">&#34;email&#34;</span>: <span style="color:#d14">&#34;byoung@bigbluehat.com&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>您可能知道所有的含义（或多或少）。然而，你的软件不知道，除非你将它们精确编码到这些字符串名。虽然我们有可能选择了相同的键(我们!)，但我们更有可能没有。我们可能会修复我们的</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-ini" data-lang="ini"><span style="color:#008080">:coffee:</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>也不是不一样，谁知道。</p>
+<p>现在，我们需要写一些代码来将我的 JSON 转换</p>
+<pre><code class="language-string" data-lang="string">first_name
+</code></pre><p>键到你的</p>
+<pre><code class="language-string" data-lang="string">firstName
+</code></pre><p>键或转换成</p>
+<pre><code class="language-string" data-lang="string">first
+</code></pre><p>它在你的</p>
+<pre><code class="language-string" data-lang="string">name
+</code></pre><p>对象中或在</p>
+<pre><code class="language-string" data-lang="string">given
+</code></pre><p>中或任何其他）。然后，我们需要再次这样做，当我们发现另一个人的信息使用不同的键名的人。冲洗。重复。</p>
+<p>如果我们可以匹配 <code>first_name</code>，<code>name.first</code>，<code>given</code> 甚至是混淆的 <code>sadfeqpoif</code> 键到一个让每个这些“含义到同样的”有意义的<em>事情</em>上，它也可以做到！</p>
+<p>参考<a href="http://json-ld.org/">JSON-LD</a> ！JSON- ld表示“链接数据的JSON(JSON for Linked Data)”。它是一种将上下文化的含义编码到没有意义的JSON文档中的规范。</p>
+<p>[推特 &quot; &quot; JSON- ld是一个将意义编码到无意义JSON文档的规范&quot; &ldquo;]</p>
+<p>这里有一个例子:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;@context&#34;</span>: {
+    <span style="color:#000080">&#34;@vocab&#34;</span>: <span style="color:#d14">&#34;http://schema.org/&#34;</span>,
+    <span style="color:#000080">&#34;first_name&#34;</span>: <span style="color:#d14">&#34;givenName&#34;</span>,
+    <span style="color:#000080">&#34;last_name&#34;</span>: <span style="color:#d14">&#34;familyName&#34;</span>,
+    <span style="color:#000080">&#34;alias&#34;</span>: <span style="color:#d14">&#34;alternateName&#34;</span>,
+    <span style="color:#000080">&#34;email&#34;</span>: <span style="color:#d14">&#34;email&#34;</span>
+  },
+  <span style="color:#000080">&#34;first_name&#34;</span>: <span style="color:#d14">&#34;Benjamin&#34;</span>,
+  <span style="color:#000080">&#34;last_name&#34;</span>: <span style="color:#d14">&#34;Young&#34;</span>,
+  <span style="color:#000080">&#34;alias&#34;</span>: <span style="color:#d14">&#34;BigBlueHat&#34;</span>,
+  <span style="color:#000080">&#34;email&#34;</span>: <span style="color:#d14">&#34;byoung@bigbluehat.com&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>在这个之前 JSON 文档的<em>升级</em> 版本中，您会看到一个新的 <code>@context</code> 对象。这个对象处理从我的专用术语到 <a href="http://schema.org/">Schema.org</a> 词汇的映射，该词汇表是通过值 <code>@vocab</code>引用的。</p>
+<p>在 <code>@vocab</code> 下面的键/值对，键直接映射在有意义的URL  <code>http://schema.org/</code> 中。现在，我的键就有意义的。现在每个键有：</p>
+<ul>
+<li>
+<p>URL形式的<strong>标识</strong>：</p>
+<blockquote>
+<p>例如，现在 <code>last_name</code> 映射到 <a href="http://schema.org/familyName">http://schema.org/familyName</a></p>
+</blockquote>
+</li>
+<li>
+<p>通过访问 URL 找到 <code>familyName</code> 的<strong>定义</strong>：家庭的姓，在美国，一个人的最后一个名字。这可以和取的名字一起使用来取代姓名属性。&quot;<em>Family name. In the U.S., the last name of a Person. This can be used along with givenName instead of the name property.</em>&rdquo;</p>
+</li>
+</ul>
+<p>很方便，不是吗？现在。如果您找到了那个JSON——或者从我的API中得到了它——您可以通过查找它们的url来了解键的含义。</p>
+<h2 id="映射到意义">映射到意义</h2>
+<p>了解JSON文档中的键意味着什么已经是对现状的一次升级，但我们不能就此止步!</p>
+<p>下面是一个直接使用 Schema.org 术语(键名)的同样的 JSON 的示例：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;@context&#34;</span>: <span style="color:#d14">&#34;http://schema.org/&#34;</span>,
+  <span style="color:#000080">&#34;givenName&#34;</span>: <span style="color:#d14">&#34;Benjamin&#34;</span>,
+  <span style="color:#000080">&#34;familyName&#34;</span>: <span style="color:#d14">&#34;Young&#34;</span>,
+  <span style="color:#000080">&#34;alternateName&#34;</span>: <span style="color:#d14">&#34;BigBlueHat&#34;</span>,
+  <span style="color:#000080">&#34;email&#34;</span>: <span style="color:#d14">&#34;byoung@bigbluehat.com&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>这个 Schema.org JSON 示例和之前的版本有着同样的意义。在两个例子中，“BigBlueHat&quot; 意味着是 本杰明•琼斯的别名(<a href="http://schema.org/alternateName">alternateName</a>)</p>
+<p>在 JSON-LD的世界中，我的带有 <code>first_name</code> 的 JSON 和这个带有 <code>givenName</code> 的JSON是等价的，完全相同的！</p>
+<h2 id="为-context-编码">为 @context 编码</h2>
+<p>我们有两个不同的 JSON 文档，它们的含义是相同的。难以置信。然而，大多数用于处理这些的 JSON 代码看起来可能有占像这样：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">var</span> doc = {<span style="color:#000;font-weight:bold">...</span>}; <span style="color:#998;font-style:italic">// one of the documents above
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">var</span> first = doc.first_name <span style="color:#000;font-weight:bold">||</span> doc.givenName;
+console.<span style="color:#900;font-weight:bold">log</span>(<span style="color:#a61717;background-color:#e3d2d2">&#39;</span>First Name<span style="color:#a61717;background-color:#e3d2d2">&#39;</span>, first);
+</code></pre></td></tr></table>
+</div>
+</div><p>@context 对象如何帮助解决这个问题？我们还是在找字符串，而不是东西。</p>
+<p>我们有两个选项:</p>
+<ul>
+<li>扩展（expansion）</li>
+<li>压缩（compaction）</li>
+</ul>
+<h3 id="expansion">Expansion</h3>
+<p>281/5000
+在JSON-LD的术语中，扩展意味着取那些有意义的、基于url的名称，并使它们(至少在处理代码中)实际上是url。下面是对上面两个上下文化的例子所做的扩展过程的输出(记住!他们现在相同了!)：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">[
+  {
+    <span style="color:#000080">&#34;http://schema.org/alternateName&#34;</span>: [
+      {
+        <span style="color:#000080">&#34;@value&#34;</span>: <span style="color:#d14">&#34;BigBlueHat&#34;</span>
+      }
+    ],
+    <span style="color:#000080">&#34;http://schema.org/email&#34;</span>: [
+      {
+        <span style="color:#000080">&#34;@value&#34;</span>: <span style="color:#d14">&#34;byoung@bigbluehat.com&#34;</span>
+      }
+    ],
+    <span style="color:#000080">&#34;http://schema.org/givenName&#34;</span>: [
+      {
+        <span style="color:#000080">&#34;@value&#34;</span>: <span style="color:#d14">&#34;Benjamin&#34;</span>
+      }
+    ],
+    <span style="color:#000080">&#34;http://schema.org/familyName&#34;</span>: [
+      {
+        <span style="color:#000080">&#34;@value&#34;</span>: <span style="color:#d14">&#34;Young&#34;</span>
+      }
+    ]
+  }
+]
+</code></pre></td></tr></table>
+</div>
+</div><p>以上是上述两个文档在JSON-LD处理系统中的内部相同表示。它的结构是这样的，因为有更多的数据可以（在实际的例子中，很可能会）添加到这些数组、对象等中。</p>
+<p>但是，您目前可能还没有得到将所有JSON处理代码切换为使用此格式的灵感。别担心！这就是压缩的原因！</p>
+<h3 id="compaction">Compaction</h3>
+<p>JSON-LD处理器将采用上述两个示例文档，将它们转换为扩展格式，然后（如果要求）将它们转换为更人性化的压缩变体，如下所示：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;@context&#34;</span>: {
+    <span style="color:#000080">&#34;@vocab&#34;</span>: <span style="color:#d14">&#34;http://schema.org/&#34;</span>,
+    <span style="color:#000080">&#34;first_name&#34;</span>: <span style="color:#d14">&#34;givenName&#34;</span>,
+    <span style="color:#000080">&#34;last_name&#34;</span>: <span style="color:#d14">&#34;familyName&#34;</span>,
+    <span style="color:#000080">&#34;alias&#34;</span>: <span style="color:#d14">&#34;alternateName&#34;</span>,
+    <span style="color:#000080">&#34;email&#34;</span>: <span style="color:#d14">&#34;email&#34;</span>
+  },
+  <span style="color:#000080">&#34;alias&#34;</span>: <span style="color:#d14">&#34;BigBlueHat&#34;</span>,
+  <span style="color:#000080">&#34;email&#34;</span>: <span style="color:#d14">&#34;byoung@bigbluehat.com&#34;</span>,
+  <span style="color:#000080">&#34;last_name&#34;</span>: <span style="color:#d14">&#34;Young&#34;</span>,
+  <span style="color:#000080">&#34;first_name&#34;</span>: <span style="color:#d14">&#34;Benjamin&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>这不是对第一个示例的复制/粘贴，可以在 <a href="http://tinyurl.com/z77crzk">JSON-LD Playground</a> 上试一下。</p>
+<h2 id="代码">代码</h2>
+<p>这儿是一个使用 <a href="https://github.com/digitalbazaar/jsonld.js">json-ld.js</a> 的魔法：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-js" data-lang="js"><span style="color:#000;font-weight:bold">var</span> recontextualized <span style="color:#000;font-weight:bold">=</span> {};
+jsonld.compact(schema_org_doc, my_context,
+  <span style="color:#000;font-weight:bold">function</span>(err, compacted) {
+    recontextualized <span style="color:#000;font-weight:bold">=</span> compacted;
+  });
+</code></pre></td></tr></table>
+</div>
+</div><p>运行该代码，可以看到上面的输出，这个魔法没有更多的代码。</p>
+<p>下面是一个包含此示例内容的实时环境，因此您可以对其进行测试：</p>
+<p><a href="http://jsbin.com/finore/embed?js,output">JS Bin on jsbin.com</a></p>
+<p><a href="http://static.jsbin.com/js/embed.min.js?3.35.11">http://static.jsbin.com/js/embed.min.js?3.35.11</a></p>
+<h2 id="有意义的个人api">有意义的个人API</h2>
+<p>现在我们可以将一个简单的 JSON 文档转换为有神奇意义的 JSON-LD 文档，让我们看看这在实践中给我们带来了什么。</p>
+<p>让我们看看来自三个不同的人员信息提供者（通常称为社交网络）的三个JSON API端点：</p>
+<ul>
+<li>Meetup</li>
+<li>Twitter</li>
+<li>LinkedIn</li>
+</ul>
+<p>首先，这里是完整的特殊 <code>@context</code>，以涵盖我希望从这三个社交网络“规范化”的内容：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;@vocab&#34;</span>: <span style="color:#d14">&#34;http://schema.org/&#34;</span>,
+  <span style="color:#000080">&#34;first_name&#34;</span>: <span style="color:#d14">&#34;givenName&#34;</span>,
+  <span style="color:#000080">&#34;last_name&#34;</span>: <span style="color:#d14">&#34;familyName&#34;</span>,
+  <span style="color:#000080">&#34;alias&#34;</span>: <span style="color:#d14">&#34;alternateName&#34;</span>,
+  <span style="color:#000080">&#34;job_title&#34;</span>: <span style="color:#d14">&#34;jobTitle&#34;</span>,
+  <span style="color:#000080">&#34;city&#34;</span>: <span style="color:#d14">&#34;addressLocality&#34;</span>,
+  <span style="color:#000080">&#34;country&#34;</span>: <span style="color:#d14">&#34;addressCountry&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>下面是URLs，旧的JSON文本和站点定制的 <code>@context</code> ，需要称映射到Schema.org标准URL。还有一个JSBIN工作区，您可以为每个工作区fork一个！</p>
+<h3 id="meetup">Meetup</h3>
+<p>URL：</p>
+<p><code>https://api.meetup.com/2/member/19524571?&amp;sign=true&amp;photo-host=public&amp;page=20&amp;only=country,city,link,bio,name</code></p>
+<p>JSON：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;link&#34;</span>: <span style="color:#d14">&#34;http://www.meetup.com/members/19524571&#34;</span>,
+  <span style="color:#000080">&#34;name&#34;</span>: <span style="color:#d14">&#34;Benjamin Young&#34;</span>,
+  <span style="color:#000080">&#34;country&#34;</span>: <span style="color:#d14">&#34;us&#34;</span>,
+  <span style="color:#000080">&#34;bio&#34;</span>: <span style="color:#d14">&#34;aka BigBlueHat -=- Developer, Web, &amp; Open Source Advocate, Invited Expert in the Annotation and Digital Publishing Working Groups at the W3C. Previously an inventor and evangelist for IBM&#39;s Cloudant, Couchbase, and also CTO at InnoVenture.&#34;</span>,
+  <span style="color:#000080">&#34;city&#34;</span>: <span style="color:#d14">&#34;Greenville&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>Meetup映射 <code>@context</code>：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;city&#34;</span>: <span style="color:#d14">&#34;http://schema.org/addressLocality&#34;</span>,
+  <span style="color:#000080">&#34;country&#34;</span>: <span style="color:#d14">&#34;http://schema.org/addressCountry&#34;</span>,
+  <span style="color:#000080">&#34;bio&#34;</span>: <span style="color:#d14">&#34;http://schema.org/description&#34;</span>,
+  <span style="color:#000080">&#34;name&#34;</span>: <span style="color:#d14">&#34;http://schema.org/name&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p><a href="http://jsbin.com/wenanu/embed?js,output">JS Bin on jsbin.com</a></p>
+<p><a href="http://static.jsbin.com/js/embed.min.js?3.35.11">http://static.jsbin.com/js/embed.min.js?3.35.11</a></p>
+<h3 id="twitter">Twitter</h3>
+<p>URL: <code>https://api.twitter.com/1.1/users/show.json?screen_name=bigbluehat&amp;user_id=15841047</code></p>
+<p>JSON <em>(只有部分结果在下面因为它是巨大的！)</em></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;id&#34;</span>: <span style="color:#099">15841047</span>,
+  <span style="color:#000080">&#34;id_str&#34;</span>: <span style="color:#d14">&#34;15841047&#34;</span>,
+  <span style="color:#000080">&#34;name&#34;</span>: <span style="color:#d14">&#34;bigbluehat&#34;</span>,
+  <span style="color:#000080">&#34;screen_name&#34;</span>: <span style="color:#d14">&#34;bigbluehat&#34;</span>,
+  <span style="color:#000080">&#34;location&#34;</span>: <span style="color:#d14">&#34;Greenville, SC&#34;</span>,
+  <span style="color:#000080">&#34;profile_location&#34;</span>: <span style="color:#000;font-weight:bold">null</span>,
+  <span style="color:#000080">&#34;description&#34;</span>: <span style="color:#d14">&#34;inventor &amp; evangelist - I :heart: hypothes.is, @couchdb, open source, open communities. I organize @RESTFest &amp; @OpenUpstate.&#34;</span>
+  <span style="color:#a61717;background-color:#e3d2d2">...</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>Twitter 映射<code>@context</code>:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#000080">&#34;name&#34;</span>: <span style="color:#d14">&#34;http://schema.org/alternateName&#34;</span>,
+  <span style="color:#000080">&#34;screen_name&#34;</span>: <span style="color:#d14">&#34;http://schema.org/alternateName&#34;</span>,
+  <span style="color:#000080">&#34;description&#34;</span>: <span style="color:#d14">&#34;http://schema.org/description&#34;</span>,
+  <span style="color:#000080">&#34;location&#34;</span>: <span style="color:#d14">&#34;http://schema.org/location&#34;</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p><a href="http://jsbin.com/gejewo/embed?js,output">JS Bin on jsbin.com</a></p>
+<p><a href="http://static.jsbin.com/js/embed.min.js?3.35.11">http://static.jsbin.com/js/embed.min.js?3.35.11</a></p>
+<h3 id="linkedin">LinkedIn</h3>
+<p>URL:<code>https://api.linkedin.com/v1/people/~?format=json</code></p>
+<p>JSON:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#000;font-weight:bold">{</span>
+  <span style="color:#d14">&#34;firstName&#34;</span>: <span style="color:#d14">&#34;Benjamin&#34;</span>,
+  <span style="color:#d14">&#34;headline&#34;</span>: <span style="color:#d14">&#34;Invited Expert, W3C&#34;</span>,
+  <span style="color:#d14">&#34;id&#34;</span>: <span style="color:#d14">&#34;Ol-pwbI97V&#34;</span>,
+  <span style="color:#d14">&#34;lastName&#34;</span>: <span style="color:#d14">&#34;Young&#34;</span>,
+  <span style="color:#d14">&#34;siteStandardProfileRequest&#34;</span>: <span style="color:#000;font-weight:bold">{</span>
+    <span style="color:#d14">&#34;url&#34;</span>: <span style="color:#d14">&#34;https://www.linkedin.com/profile/view?id=AAoAAAAAx4oBxNlPOjsrspSms5FMi7Tx0c-EBSk&amp;authType=name&amp;authToken=XFwT&amp;trk=api*a3227641*s3301901*&#34;</span>
+  <span style="color:#000;font-weight:bold">}</span>
+<span style="color:#000;font-weight:bold">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>LinkedIn 映射 <code>@context</code>:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#000;font-weight:bold">{</span>
+  <span style="color:#d14">&#34;firstName&#34;</span>: <span style="color:#d14">&#34;http://schema.org/givenName&#34;</span>,
+  <span style="color:#d14">&#34;lastName&#34;</span>: <span style="color:#d14">&#34;http://schema.org/familyName&#34;</span>,
+  <span style="color:#d14">&#34;headline&#34;</span>: <span style="color:#d14">&#34;http://schema.org/jobTitle&#34;</span>
+<span style="color:#000;font-weight:bold">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><a href="http://jsbin.com/godaro/embed?js,output">JS Bin on jsbin.com</a></p>
+<p><a href="http://static.jsbin.com/js/embed.min.js?3.35.11">http://static.jsbin.com/js/embed.min.js?3.35.11</a></p>
+<h2 id="结论">结论</h2>
+<p>我现在有三个不同但有对我自己来说有意义的正常化文本。根据我使用的数据存储，我可以用多种方式合并这些数据。现在键都匹配了。当所有的标识符都在文档中有意义的时候，它们就有意义了。这远远超过了我从原始 <code>GET</code> 请求中得到的</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://cyberwave.github.io">听雪者</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/">https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/use-hugo-and-github-make-blog/">使用Hugo和GitHub搭建博客</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/json-ld'>json-ld</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="http://yuedu.baidu.com/ebook/14a722970740be1e640e9a3e" title="Android Gradle权威指南">Android Gradle权威指南</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>听雪者的博客</title>
-    <link>https://cyberwave.github.io/</link>
-    <description>Recent content on 听雪者的博客</description>
+    <title>json on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/categories/json/</link>
+    <description>Recent content in json on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 04 Feb 2021 10:40:44 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 04 Feb 2021 10:40:44 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/categories/json/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>使用Json Ld构建有意义的数据API</title>
       <link>https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/</link>
@@ -14,15 +14,6 @@
       
       <guid>https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/</guid>
       <description>[原文] [译] https://rollout.io/blog/json-ld-building-meaningful-data-apis/ 每个人都喜欢 JSON 然而，JSON 本身是相当无意义的。好吧，它是有意义的，但这仅对这种格式的源创建者来说。它们可以通过文档、对话或</description>
-    </item>
-    
-    <item>
-      <title>使用Hugo和GitHub搭建博客</title>
-      <link>https://cyberwave.github.io/post/use-hugo-and-github-make-blog/</link>
-      <pubDate>Thu, 04 Feb 2021 09:26:38 +0800</pubDate>
-      
-      <guid>https://cyberwave.github.io/post/use-hugo-and-github-make-blog/</guid>
-      <description>[转载] 使用Hugo和GitHub搭建博客 折腾了几天博客的框架终于搭建起来了。研究了一番之后，最终还是选择使用Hugo和GitHub来搭建博</description>
     </item>
     
   </channel>
