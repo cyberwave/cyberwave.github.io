@@ -34,5 +34,32 @@
       <description>[转载] 使用Hugo和GitHub搭建博客 折腾了几天博客的框架终于搭建起来了。研究了一番之后，最终还是选择使用Hugo和GitHub来搭建博</description>
     </item>
     
+    <item>
+      <title>关于我</title>
+      <link>https://cyberwave.github.io/about/</link>
+      <pubDate>Tue, 10 Mar 2015 00:13:27 +0000</pubDate>
+      
+      <guid>https://cyberwave.github.io/about/</guid>
+      <description>内容佚失，以待修补</description>
+    </item>
+    
+    <item>
+      <title>归档</title>
+      <link>https://cyberwave.github.io/archives/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://cyberwave.github.io/archives/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>搜索</title>
+      <link>https://cyberwave.github.io/search/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://cyberwave.github.io/search/</guid>
+      <description></description>
+    </item>
+    
   </channel>
 </rss>
