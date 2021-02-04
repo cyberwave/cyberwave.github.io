@@ -3,15 +3,26 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>https://cyberwave.github.io/post/</loc>
+    <lastmod>2021-02-04T09:26:38+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/use-hugo-and-github-make-blog/</loc>
+    <lastmod>2021-02-04T09:26:38+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/</loc>
+    <lastmod>2021-02-04T09:26:38+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://cyberwave.github.io/categories/</loc>
   </url>
   
   <url>
     <loc>https://cyberwave.github.io/tags/</loc>
-  </url>
-  
-  <url>
-    <loc>https://cyberwave.github.io/</loc>
   </url>
   
 </urlset>
