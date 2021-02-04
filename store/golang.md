@@ -1,6 +1,0 @@
-1. [Golang Multipart File Upload Example](https://matt.aimonetti.net/posts/2013/07/01/golang-multipart-file-upload-example/)
-2. [HTTP协议与Go的实现](https://ninokop.github.io/2018/02/19/HTTP%E5%8D%8F%E8%AE%AE%E4%B8%8EGo%E7%9A%84%E5%AE%9E%E7%8E%B0/)
-3. [HTTP协议头部与Keep-Alive模式详解](https://www.byvoid.com/zhs/blog/http-keep-alive-header)
-4. [Go net / http超时的完整指南](https://blog.cloudflare.com/the-complete-guide-to-golang-net-http-timeouts/)
-5. [Golang 教程系列](https://golangbot.com/learn-golang-series/)
-6. [yaml解析后为map[interface{}]interface{}的处理](https://github.com/go-yaml/yaml/issues/139)
