@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Golang的可视化内存管理 | 听雪者的博客</title>
+    <meta property="og:title" content="Golang的可视化内存管理 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-04T13:50:07&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-04T13:50:07&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Golang的可视化内存管理">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/visualizing-memory-management-in-golang/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">Go语言(golang)、区块链!</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#go内部存储结构">Go内部存储结构</a>
+      <ul>
+        <li><a href="#页堆mheap">页堆（<code>mheap</code>）</a></li>
+        <li><a href="#栈">栈</a></li>
+      </ul>
+    </li>
+    <li><a href="#go内存使用栈与堆">Go内存使用（栈与堆）</a></li>
+    <li><a href="#go内存管理">Go内存管理</a>
+      <ul>
+        <li><a href="#内存分配">内存分配</a></li>
+        <li><a href="#垃圾收集">垃圾收集</a></li>
+      </ul>
+    </li>
+    <li><a href="#结论">结论</a></li>
+    <li><a href="#参考文献">参考文献</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Golang的可视化内存管理</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月4日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>原文：<a href="https://deepu.tech/memory-management-in-golang/">🚀 Visualizing memory management in Golang</a></p>
+<p>在本章中， 我们将研究 <strong><a href="https://golang.org/">Go</a></strong> 编程语言（golang）的内存管理。Go 是一种静态类型化和编译的语言，和 C/C++ 和 Rust一样。因此，Go 不需要 VM， 而 Go 应用程序二进制文件中嵌入了一个小型运行时程序，以处理诸如垃圾收集，调度和并发之类的语言功能。</p>
+<p>如果您还没有阅读本系列的<a href="https://deepu.tech/memory-management-in-programming/">第一部分</a>，请先阅读它，因为我在那解释了栈和堆内存之间的区别，这对于理解本章很有用。</p>
+<blockquote>
+<p><em>这篇文章基于Go 1.13的默认官方实现，概念细节可能会在Go的未来版本中发生变化</em></p>
+</blockquote>
+<h2 id="go内部存储结构">Go内部存储结构</h2>
+<p>首先，让我们看看 Go 的内部存储结构是什么。</p>
+<blockquote>
+<p>Go运行时将Goroutines（<code>G</code>）调度到逻辑处理器（<code>P</code>）上执行。每个 <code>P</code> 都有一台机器（<code>M</code>）。在这篇文章中，我们将使用<code>P</code>, <code>M</code>和<code>G</code>。如果您不熟悉Go调度程序，请先阅读<a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part2.html">Go调度器：Ms，Ps和Gs</a>。</p>
+</blockquote>
+<p>
+        <img class="mx-auto" alt="去调度程序" src="https://i.imgur.com/wThLAbQ.png" />   
+    </p>
+<p>每个Go程序进程都由操作系统（OS）分配了一些虚拟内存，这是该进程可以访问的总内存。虚拟内存中使用的实际内存称为<strong>常驻集</strong>。该空间由内部存储结构管理，如下所示：</p>
+<p>
+        <img class="mx-auto" alt="记忆结构" src="https://i.imgur.com/vFtq3uj.png" />   
+    </p>
+<p>这是一个简化视图，基于Go使用的内部对象。实际上，Go如<a href="https://blog.learngoprogramming.com/a-visual-guide-to-golang-memory-allocator-from-ground-up-e132258453ed">本文中</a>所述将内存划分并分组为页面。</p>
+<p>这与我们在前几章中针对<a href="https://deepu.tech/memory-management-in-jvm/">JVM</a>和<a href="https://deepu.tech/memory-management-in-v8/">V8</a>看到的内存结构完全不同。如您所见，这里没有世代记忆。这样做的主要原因是<a href="http://goog-perftools.sourceforge.net/doc/tcmalloc.html"><strong>TCMalloc</strong></a>（线程缓存Malloc），它是Go自己的内存分配器的模型。</p>
+<p>让我们看看不同的构造是什么：</p>
+<h3 id="页堆mheap">页堆（<code>mheap</code>）</h3>
+<p>Go在这里存储动态数据（在编译时无法计算大小的任何数据）。这是最大的内存块，这是进行**垃圾收集（GC）**的地方。</p>
+<p>每个驻留集被分为8KB的页，并由一个全局的 <code>mheap</code> 对象管理。</p>
+<blockquote>
+<p>大对象（大小&gt; 32kb的对象）被直接从 <code>mheap</code> 分配。这些大请求是以中央锁定为代价的，因此，在任何给定时间点只能满足一个 <code>P</code>  的请求。</p>
+</blockquote>
+<p><code>mheap</code> 管理页分为以下不同的结构：</p>
+<ul>
+<li>
+<p><strong>mspan</strong>：<code>mspan</code>是在 <code>mheap</code> 中管理内存页的最基本结构。这是一个双向链接列表，其中包含起始页面的地址，span 大小类和 span 中的页数。像TCMalloc一样，Go还将内存页按大小分为67个不同类的块，大小从8个字节开始，最高到32 KB，如下图所示</p>
+<p>
+        <img class="mx-auto" alt="img" src="https://i.imgur.com/IxjG2aF.png" />   
+    </p>
+<p>每个 span 存在两次，一次用于带指针的对象（<strong>扫描</strong>类），另一个用于无指针的对象（**<code>非扫描</code>**类）。这在GC期间有帮助的，因为 <code>noscan</code> 的 span 无需遍历即可查找活动对象。</p>
+</li>
+<li>
+<p><strong>mcentral</strong>：<code>mcentral</code>将相同大小级别的 span 分组在一起。每个<code>mcentral</code>包含两个<code>mspanList</code>：</p>
+<ul>
+<li><strong>空</strong>：span 的双向链表，没有空闲对象或 span 被缓存到 <code>mcache</code> 中。当这里的跨度被释放时，它将被移到非空列表。</li>
+<li><strong>非空</strong>：带有释放对象的 span 的双链表。当从 <code>mcentral</code> 中请求新的 span 时，它将从非空列表中获取该 span 并将其移入空列表。</li>
+</ul>
+<p>如果<code>mcentral</code>没有可用的span，它将从 <code>mheap</code> 中请求新的运行页。</p>
+</li>
+<li>
+<p><strong>arena</strong>：堆内存在分配的虚拟内存中根据需要增长和缩小。当需要更多内存时，<code>mheap</code>从虚拟内存中将它们作为64MB大小的块（对于64位体系结构）拉出，被称为 <code>arena</code>。页在此处映射到span。</p>
+</li>
+<li>
+<p><strong>mcache</strong>：这是一个非常有趣的构造。<code>mcache</code>是提供给<code>P</code>（逻辑处理器）的内存缓存，用于存储小对象（对象大小&lt;= 32Kb）。尽管这类似于线程栈，但它是堆的一部分，用于动态数据。所有类大小的<code>mcache</code>包含<code>scan</code>和<code>noscan</code>类型<code>mspan</code>。因为 <code>P</code> 每次只能有一个<code>G</code>，Goroutine可以从<code>mcache</code>没有任何锁的情况下获取内存，。因此，这更有效。<code>mcache</code>从<code>mcentral</code>需要时请求新的span。</p>
+</li>
+</ul>
+<h3 id="栈">栈</h3>
+<p>这是栈存储区，每个Goroutine（<code>G</code>）有一个栈。在这里存储了静态数据，包括帧，静态结构，原始值和指向动态结构的指针。这与分配给<code>P</code>的 <code>mcache</code>不一样</p>
+<h2 id="go内存使用栈与堆">Go内存使用（栈与堆）</h2>
+<p>现在我们已经清楚了内存的组织方式，让我们看看Go在执行程序时如何使用Stack和Heap。</p>
+<p>让我们使用下面的Go程序，代码没有针对正确性进行优化，因此可以忽略诸如不必要的中间变量之类的问题，因此，重点是可视化堆栈和堆内存的使用情况。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">package</span> main
+
+<span style="color:#000;font-weight:bold">import</span> <span style="color:#d14">&#34;fmt&#34;</span>
+
+<span style="color:#000;font-weight:bold">type</span> Employee <span style="color:#000;font-weight:bold">struct</span> {
+  name   <span style="color:#458;font-weight:bold">string</span>
+  salary <span style="color:#458;font-weight:bold">int</span>
+  sales  <span style="color:#458;font-weight:bold">int</span>
+  bonus  <span style="color:#458;font-weight:bold">int</span>
+}
+
+<span style="color:#000;font-weight:bold">const</span> BONUS_PERCENTAGE = <span style="color:#099">10</span>
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">getBonusPercentage</span>(salary <span style="color:#458;font-weight:bold">int</span>) <span style="color:#458;font-weight:bold">int</span> {
+  percentage <span style="color:#000;font-weight:bold">:=</span> (salary <span style="color:#000;font-weight:bold">*</span> BONUS_PERCENTAGE) <span style="color:#000;font-weight:bold">/</span> <span style="color:#099">100</span>
+  <span style="color:#000;font-weight:bold">return</span> percentage
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">findEmployeeBonus</span>(salary, noOfSales <span style="color:#458;font-weight:bold">int</span>) <span style="color:#458;font-weight:bold">int</span> {
+  bonusPercentage <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getBonusPercentage</span>(salary)
+  bonus <span style="color:#000;font-weight:bold">:=</span> bonusPercentage <span style="color:#000;font-weight:bold">*</span> noOfSales
+  <span style="color:#000;font-weight:bold">return</span> bonus
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+  <span style="color:#000;font-weight:bold">var</span> john = Employee{<span style="color:#d14">&#34;John&#34;</span>, <span style="color:#099">5000</span>, <span style="color:#099">5</span>, <span style="color:#099">0</span>}
+  john.bonus = <span style="color:#900;font-weight:bold">findEmployeeBonus</span>(john.salary, john.sales)
+  fmt.<span style="color:#900;font-weight:bold">Println</span>(john.bonus)
+} 
+</code></pre></td></tr></table>
+</div>
+</div><p>Go与许多垃圾收集语言相比的一个主要区别是，许多对象直接在程序堆栈上分配。Go编译器使用一种称为<a href="https://www.ardanlabs.com/blog/2017/05/language-mechanics-on-escape-analysis.html">转义分析</a>的进程来查找其寿命在编译时已知的对象，并将其分配到栈上，而不是在垃圾回收的堆内存中分配。在编译过程中，Go进行了转义分析，以确定哪些可以放入栈（静态数据），哪些需要放入堆（动态数据）。我们可以在编译过程中，通过运行带有 <code>-gcflags '-m'</code>标志的 <code>go build</code> 看到这段细节。对于上面的代码，它将输出如下内容：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">❯ go build -gcflags <span style="color:#d14">&#39;-m&#39;</span> gc.go
+<span style="color:#998;font-style:italic"># command-line-arguments</span>
+temp/gc.go:14:6: can inline getBonusPercentage
+temp/gc.go:19:6: can inline findEmployeeBonus
+temp/gc.go:20:39: inlining call to getBonusPercentage
+temp/gc.go:27:32: inlining call to findEmployeeBonus
+temp/gc.go:27:32: inlining call to getBonusPercentage
+temp/gc.go:28:13: inlining call to fmt.Println
+temp/gc.go:28:18: john.bonus escapes to heap
+temp/gc.go:28:13: io.Writer<span style="color:#000;font-weight:bold">(</span>os.Stdout<span style="color:#000;font-weight:bold">)</span> escapes to heap
+temp/gc.go:28:13: main <span style="color:#000;font-weight:bold">[]</span>interface <span style="color:#000;font-weight:bold">{}</span> literal does not escape &lt;autogenerated&gt;:1: os.<span style="color:#000;font-weight:bold">(</span>*File<span style="color:#000;font-weight:bold">)</span>.close .this does not escape 
+</code></pre></td></tr></table>
+</div>
+</div><p>让我们将其可视化。单击幻灯片，然后使用箭头键向前/向后移动，以查看上述程序的执行以及如何使用栈和堆内存：</p>
+<!-- raw HTML omitted -->
+<p><em>注意：如果幻灯片的边缘看起来被切掉，请单击幻灯片的标题或<a href="https://speakerdeck.com/deepu105/golang-memory-usage-stack-vs-heap">在此处</a>直接在SpeakerDeck中打开它。</em></p>
+<p>如你看到的：</p>
+<ul>
+<li><strong>Main</strong>函数保存在栈的“main frame”中</li>
+<li>每个函数调用都作为一个帧块添加到栈内存中</li>
+<li>所有静态变量（包括参数和返回值）都保存在栈上的函数帧块内</li>
+<li>无论类型如何，所有静态值都直接存储在栈中。这也适用于全局范围</li>
+<li>所有的动态类型都在堆上被创建，并使用栈指针从栈中引用。大小小于32Kb的对象转到<code>mcache</code>的<code>P</code>上。这也适用于全局范围</li>
+<li>具有静态数据的结构体将保留在栈上，直到任何动态值添加到该结构为止</li>
+<li>从当前函数调用的函数被推入栈顶</li>
+<li>函数返回时，将其帧从堆栈中删除</li>
+<li>一旦主进程完成，堆上的对象将不再具有来自Stack的指针，并成为孤立对象</li>
+</ul>
+<p>如您所见，栈是由操作系统自动管理的，而不是Go本身。因此，我们不必担心栈。另一方面，Heap并不是由操作系统自动管理的，并且由于其最大的内存空间并保存动态数据，因此它可能呈指数增长，从而导致我们的程序随着时间耗尽内存。随着时间的流逝，它也变得支离破碎，使应用程序变慢。这是垃圾收集的来源。</p>
+<h2 id="go内存管理">Go内存管理</h2>
+<p>Go的内存管理包括在需要内存时自动分配内存，在不再需要内存时进行垃圾回收。这是由标准库完成的。与C / C ++不同，开发人员不必处理它，并且Go进行的基础管理得到了很好的优化和高效。</p>
+<h3 id="内存分配">内存分配</h3>
+<p>许多采用垃圾收集的编程语言都使用代内存结构来使收集高效，同时进行压缩以减少碎片。正如我们前面所看到的，Go在这里采用了不同的方法，Go在构造内存方面有很大不同。Go使用线程本地缓存来加速小对象分配，并维护<code>scan</code>/<code>noscan</code> span来加速GC。这种结构以及整个过程避免了碎片，从而在GC期间无需压缩。让我们看看这种分配是如何发生的。</p>
+<p>Go根据对象的大小决定对象的分配过程，分为三类：</p>
+<p><strong>Tiny（size &lt;16B）</strong>：使用<code>mcache</code>的微小分配器分配大小小于16个字节的对象。这是高效的，并且在单个16字节块上完成了多个微小分配。</p>
+<p>
+        <img class="mx-auto" alt="微小的分配" src="https://i.imgur.com/Kh26oVp.gif" />   
+    </p>
+<p><strong>小（尺寸16B〜32KB）</strong>：16个字节和32千字节之间的大小的对象被分配在对应的尺寸类（<code>mspan</code>）<code>mcache</code>上，该 <code>mcache</code>位于正在运行 <code>G</code> 的<code>P</code>上。</p>
+<p>
+        <img class="mx-auto" alt="小分配" src="https://i.imgur.com/PY4pZhq.gif" />   
+    </p>
+<p>在小型和小型分配中，如果<code>mspan</code>的列表为空，分配器将从分配的页面中获取大量页面<code>mheap</code>用于分配<code>mspan</code>。如果<code>mheap</code>元素为空或没有足够大的页面运行，那么它将从操作系统中分配一组新的页面（至少1MB）。</p>
+<p><strong>Large（size&gt; 32KB）</strong>：大于32 KB的对象直接分配在的相应size类上<code>mheap</code>。如果<code>mheap</code>元素为空或没有足够大的页面运行，那么它将从操作系统中分配一组新的页面（至少1MB）。</p>
+<p>
+        <img class="mx-auto" alt="大量分配" src="https://i.imgur.com/uLhLZMm.gif" />   
+    </p>
+<p><em>注意：您可以在<a href="https://speakerdeck.com/deepu105/go-memory-allocation">此处</a>找到上述GIF图像作为幻灯片放映</em></p>
+<h3 id="垃圾收集">垃圾收集</h3>
+<p>现在我们知道Go如何分配内存，让我们看看它如何自动收集Heap内存，这对于应用程序的性能非常重要。当程序尝试在堆上分配的内存大于可用<strong>内存时，<strong>我们会遇到</strong>内存不足错误</strong>。管理不当的堆也可能导致内存泄漏。</p>
+<p>Go通过垃圾回收来管理堆内存。简单来说，它释放了孤立对象使用的内存，即不再从堆栈中直接或间接（通过另一个对象中的引用）引用的对象，以腾出空间来创建新对象。</p>
+<p>从1.12版开始，Golang使用了非世代的并发三色标记和清除收集器。收集过程大致如下所示，由于版本之间的差异，我不想赘述。但是，如果您对此感兴趣，那么我推荐<a href="https://www.ardanlabs.com/blog/2018/12/garbage-collection-in-go-part1-semantics.html">这个</a>很棒的系列。</p>
+<p>当完成一定百分比（GC百分比）的堆分配并且收集器执行不同的工作阶段时，该过程开始：</p>
+<ul>
+<li><strong>标记设置</strong>（停止运行）：GC启动时，收集器将打开**<a href="https://www.memorymanagement.org/glossary/w.html#term-write-barrier">写屏障，</a>**以便可以在下一个并发阶段维护数据完整性。此步骤需要非常小的暂停，因为每个正在运行的Goroutine都会暂停以启用此功能，然后继续。</li>
+<li><strong>标记</strong>（并发）：打开写屏障后，将使用25％的可用CPU容量与应用程序并行启动实际标记过程。<code>P</code>保留对应的，直到标记完成。这是使用专用Goroutines完成的。在这里，GC标记了活动堆中的值（从任何活动Goroutine的堆栈中引用）。当采集花费更长的时间时，该过程可以从应用程序中使用主动Goroutine来辅助标记过程。这称为<strong>标记辅助</strong>。</li>
+<li><strong>标记终止</strong>（停止工作）：标记完成后，每个活动的Goroutine都会暂停，并关闭写屏障，并开始执行清理任务。GC还会在此处计算下一个GC目标。完成此操作后，保留<code>P</code>的会释放回应用程序。</li>
+<li><strong>清除</strong>（并发）：完成收集并尝试分配后，清除进程开始从未标记为活动的堆中回收内存。扫描的内存量与分配的内存量同步。</li>
+</ul>
+<p>让我们在一个Goroutine中看到它们的作用。为了简洁起见，将对象的数量保持较小。单击幻灯片，然后使用箭头键向前/向后移动以查看该过程：</p>
+<!-- raw HTML omitted -->
+<p><em>注意：如果幻灯片的边缘看起来被切掉，请单击幻灯片的标题或<a href="https://speakerdeck.com/deepu105/go-gc-visualized">在此处</a>直接在SpeakerDeck中打开它。</em></p>
+<ol>
+<li>我们正在查看单个Goroutine，实际过程将对所有活动Goroutine执行此操作。首先打开写屏障。</li>
+<li>标记过程选择GC根并将其着色为黑色，并以深度优先的树状方式遍历该指针，将遇到的每个对象标记为灰色</li>
+<li>当它到达<code>noscan</code>跨度中的某个对象或某个对象不再有指针时，它将完成根操作并拾取下一个GC根对象</li>
+<li>扫描完所有GC根之后，它将拾取灰色对象，并以类似方式继续遍历其指针</li>
+<li>如果在打开写屏障时对对象的指针发生了任何变化，则该对象将变为灰色，以便GC对其进行重新扫描</li>
+<li>当不再有灰色物体留下时，标记过程完成，并且写入屏障被关闭</li>
+<li>分配开始时将进行扫描</li>
+</ol>
+<p>这有一些停滞不前的过程，但是通常在大多数情况下可以忽略不计。对象的着色<code>gcmarkBits</code>在跨度的属性中进行。</p>
+<h2 id="结论">结论</h2>
+<p>这篇文章应该为您提供Go内存结构和内存管理的概述。这不是详尽无遗的，有许多更高级的概念，实现细节在各个版本之间不断变化。但是对于大多数Go开发人员来说，这种信息水平就足够了，我希望它能帮助您编写出更好的代码（考虑到这些），以获得性能更高的应用程序，并牢记这些，将有助于您避免可能遇到的下一个内存泄漏问题。</p>
+<p>希望您能从中学到快乐，请继续关注本系列的下一篇文章。</p>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><a href="https://blog.learngoprogramming.com/a-visual-guide-to-golang-memory-allocator-from-ground-up-e132258453ed">blog.learngoprogramming.com</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2018/12/garbage-collection-in-go-part1-semantics.html">www.ardanlabs.com</a></li>
+<li><a href="https://povilasv.me/go-memory-management/">povilasv.me</a></li>
+<li><a href="https://medium.com/a-journey-with-go/go-memory-management-and-allocation-a7396d430f44">medium.com/a-journey-with-go</a></li>
+<li><a href="https://medium.com/a-journey-with-go/go-how-does-the-garbage-collector-mark-the-memory-72cfc12c6976">medium.com/a-journey-with-go</a></li>
+<li><a href="https://hub.packtpub.com/implementing-memory-management-with-golang-garbage-collector/">hub.packtpub.com</a></li>
+<li><a href="https://making.pusher.com/golangs-real-time-gc-in-theory-and-practice/">making.pusher.com</a></li>
+<li><a href="https://segment.com/blog/allocation-efficiency-in-high-performance-go-services/">segment.com/blog</a></li>
+<li><a href="https://go101.org/article/memory-block.html">go101.org</a></li>
+</ul>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/47-advanced-tutorials-for-mastering-k8s/">掌握k8s的47个高级教程</a></li>
+        
+        <li><a href="/post/understanding-mysql-access-denied-error-inout-docker/">了解Docker容器内外的MySQL拒绝服务错误</a></li>
+        
+        <li><a href="/post/json-ld-building-meaningful-data-apis/">使用Json Ld构建有意义的数据API</a></li>
+        
+        <li><a href="/post/use-hugo-and-github-make-blog/">使用Hugo和GitHub搭建博客</a></li>
+        
+        <li><a href="/about/">关于我</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/golang'>golang</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/grep-search-for-strings/" title="Grep Search for Strings">Grep Search for Strings</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/visualizing-memory-management-in-golang/" title="Golang的可视化内存管理">Golang的可视化内存管理</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/" title="掌握k8s的47个高级教程">掌握k8s的47个高级教程</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/" title="了解Docker容器内外的MySQL拒绝服务错误">了解Docker容器内外的MySQL拒绝服务错误</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="http://yuedu.baidu.com/ebook/14a722970740be1e640e9a3e" title="Android Gradle权威指南">Android Gradle权威指南</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -17,6 +17,15 @@
     </item>
     
     <item>
+      <title>Golang的可视化内存管理</title>
+      <link>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</link>
+      <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</guid>
+      <description>原文：🚀 Visualizing memory management in Golang 在本章中， 我们将研究 Go 编程语言（golang）的内存管理。Go 是一种静态类型化和编译的语言，和 C/C++ 和 Rust一样。因此，Go</description>
+    </item>
+    
+    <item>
       <title>掌握k8s的47个高级教程</title>
       <link>https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/</link>
       <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
