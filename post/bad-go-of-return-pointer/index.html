@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Go返回指针的坏处 | 听雪者的博客</title>
+    <meta property="og:title" content="Go返回指针的坏处 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-26T10:42:47&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-26T10:42:47&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Go返回指针的坏处">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/bad-go-of-return-pointer/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">Go语言(golang)、区块链!</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents"></nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go返回指针的坏处</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月26日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>[译] <a href="https://philpearl.github.io/post/bad_go_pointer_returns/">Bad Go: pointer returns</a></p>
+<p>作为一个不再年轻的C程序员，我苦恼于一点：函数返回结构体的指针是完全正常的。但我感觉这是Go的坏处，通常我认为返回结构体的值会更好。我试着证明返回结构体的值会更好。</p>
+<p>我定义一个可以很容易改变大小 的结构体。结构体的内容是一个数组：通过改变数组的大小来简单地改变结构体的大小。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">const</span> bigStructSize = <span style="color:#099">10</span>
+
+<span style="color:#000;font-weight:bold">type</span> bigStruct <span style="color:#000;font-weight:bold">struct</span> {
+  a [bigStructSize]<span style="color:#458;font-weight:bold">int</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>接下来，我将创建两个程序来构建这个结构体的新版本。一个以指针将它返回，另一个返回它的值。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">newBigStruct</span>() bigStruct {
+   <span style="color:#000;font-weight:bold">var</span> b bigStruct
+   <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; bigStructSize; i<span style="color:#000;font-weight:bold">++</span> {
+       b.a[i] = i
+   }
+   <span style="color:#000;font-weight:bold">return</span> b
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">newBigStructPtr</span>() <span style="color:#000;font-weight:bold">*</span>bigStruct {
+   <span style="color:#000;font-weight:bold">var</span> b bigStruct
+   <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; bigStructSize; i<span style="color:#000;font-weight:bold">++</span> {
+       b.a[i] = i
+   }
+   <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>b
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>最后，我写两个基准测试来测试获取和使用这些结构体的耗时。我在结构体中的值做些简单的计算，以便让编译器不会仅仅优化整个过程。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkStructReturnValue</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+	b.<span style="color:#900;font-weight:bold">ReportAllocs</span>()
+
+	t <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>
+	<span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+		v <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">newBigStruct</span>()
+		t <span style="color:#000;font-weight:bold">+=</span> v.a[<span style="color:#099">0</span>]
+	}
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkStructReturnPointer</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+	b.<span style="color:#900;font-weight:bold">ReportAllocs</span>()
+
+	t <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>
+	<span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+		v <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">newBigStructPtr</span>()
+		t <span style="color:#000;font-weight:bold">+=</span> v.a[<span style="color:#099">0</span>]
+	}
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>将 <code>bigStructSize</code> 设置为10，按值返回将是按指针返回的两倍。在指针示例中，内存被分配到堆上，这将花费大约20ns，然后数据被设置(在两个示例中花费的时间应该是一样的)，再然后指针被写入到栈中，返回结构体给调用者。在值示例中，没有内存分配，但是整个结构体必须被拷贝到栈上并返回给它的调用者。</p>
+<p>在这种结构体大小下，在栈上复制数据的开销小于分配内存的开销。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">BenchmarkStructReturnValue-8  	100000000	15.4 ns/op	 0 B/op	0 allocs/op
+BenchmarkStructReturnPointer-8	50000000	36.5 ns/op	80 B/op	1 allocs/op
+</code></pre></td></tr></table>
+</div>
+</div><p>当修改 <code>bigStructSize</code> 为 100, 现在结构体包含 100个整型，以绝对值表示的差距将增加 &ndash; 尽管指针示例中增加的百分比比较少。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">BenchmarkStructReturnValue-8  	20000000	105 ns/op	  0 B/op	0 allocs/op
+BenchmarkStructReturnPointer-8	10000000	185 ns/op	896 B/op	1 allocs/op
+</code></pre></td></tr></table>
+</div>
+</div><p>如果我们将结构体改为1000个整型，返回指针是否会更快？</p>
+<pre><code>BenchmarkStructReturnValue-8  	2000000	 830 ns/op	   0 B/op	0 allocs/op
+BenchmarkStructReturnPointer-8	1000000	1401 ns/op	8192 B/op	1 allocs/op
+</code></pre><p>不，情况更糟，那增加到10000呢？</p>
+<pre><code>BenchmarkStructReturnValue-8  	100000	13332 ns/op	    0 B/op	0 allocs/op
+BenchmarkStructReturnPointer-8	200000	11032 ns/op	81920 B/op	1 allocs/op
+</code></pre><p>最后，在结构体中包含10000个整型下，结构体返回指针更快。经过进一步的调查，看来我的笔记本电脑上的临界点是2700。在这一点上，我几乎不知道为什么1000 整型会有如此大的差异。让我们看下基准的 profile ！</p>
+<pre><code>go test -bench BenchmarkStructReturnValue -run ^$ -cpuprofile cpu2.prof
+go tool pprof  post.test cpu2.prof 
+(pprof) top
+Showing nodes accounting for 2.25s, 100% of 2.25s total
+      flat  flat%   sum%        cum   cum%
+     2.09s 92.89% 92.89%      2.23s 99.11%  github.com/philpearl/blog/content/post.newBigStruct
+     0.14s  6.22% 99.11%      0.14s  6.22%  runtime.newstack
+     0.02s  0.89%   100%      0.02s  0.89%  runtime.nanotime
+         0     0%   100%      2.23s 99.11%  github.com/philpearl/blog/content/post.BenchmarkStructReturnValue
+         0     0%   100%      0.02s  0.89%  runtime.mstart
+         0     0%   100%      0.02s  0.89%  runtime.mstart1
+         0     0%   100%      0.02s  0.89%  runtime.sysmon
+         0     0%   100%      2.23s 99.11%  testing.(*B).launch
+         0     0%   100%      2.23s 99.11%  testing.(*B).runN
+</code></pre><p>在值返回的示例中，几乎所有的工作发生在 <code>newBigStruct</code>。这一切是相关的简单，如果我们看指针示例的 profile 会发生什么？</p>
+<pre><code>go test -bench BenchmarkStructReturnPointer -run ^$ -cpuprofile cpu.prof
+go tool pprof post.test cpu.prof 
+(pprof) top
+Showing nodes accounting for 2690ms, 93.08% of 2890ms total
+Dropped 28 nodes (cum &lt;= 14.45ms)
+Showing top 10 nodes out of 67
+      flat  flat%   sum%        cum   cum%
+    1110ms 38.41% 38.41%     1110ms 38.41%  runtime.pthread_cond_signal
+     790ms 27.34% 65.74%      790ms 27.34%  runtime.pthread_cond_wait
+     300ms 10.38% 76.12%      300ms 10.38%  runtime.usleep
+     200ms  6.92% 83.04%      200ms  6.92%  runtime.pthread_cond_timedwait_relative_np
+      80ms  2.77% 85.81%       80ms  2.77%  runtime.nanotime
+      60ms  2.08% 87.89%      140ms  4.84%  runtime.sweepone
+      50ms  1.73% 89.62%       50ms  1.73%  runtime.pthread_mutex_lock
+      40ms  1.38% 91.00%      150ms  5.19%  github.com/philpearl/blog/content/post.newBigStructPtr
+      30ms  1.04% 92.04%       40ms  1.38%  runtime.gcMarkDone
+      30ms  1.04% 93.08%       40ms  1.38%  runtime.scanobject
+</code></pre><p>在 <code>newBigStructPtr</code> 示例中，情况要复杂的多，有很多函数使用大量的CPU。在 <code>newBigStructPtr</code> 的设置只花费了大约 5% 的时间。相反，在Go运行时，有很多的时间花费在处理线程，锁和垃圾回收。底层的函数返回指针很快，但是分配指针所带来的负担却是巨大的开销。</p>
+<p>现在，这种情况非常简单，数据被创建后立即被丢弃，因此垃圾收集器将承受巨大的负担。如果返回的数据的生存期更长，则结果可能会大不相同。但这也许表明，返回具有较短生存期结构体指针是不好的。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/grep-search-for-strings/">Grep Search for Strings</a></li>
+        
+        <li><a href="/post/visualizing-memory-management-in-golang/">Golang的可视化内存管理</a></li>
+        
+        <li><a href="/post/47-advanced-tutorials-for-mastering-k8s/">掌握k8s的47个高级教程</a></li>
+        
+        <li><a href="/post/understanding-mysql-access-denied-error-inout-docker/">了解Docker容器内外的MySQL拒绝服务错误</a></li>
+        
+        <li><a href="/post/json-ld-building-meaningful-data-apis/">使用Json Ld构建有意义的数据API</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/%E6%8C%87%E9%92%88'>指针</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go调度：第一部分-操作系统调度">Go调度：第一部分-操作系统调度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/grep-search-for-strings/" title="Grep Search for Strings">Grep Search for Strings</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/visualizing-memory-management-in-golang/" title="Golang的可视化内存管理">Golang的可视化内存管理</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/" title="掌握k8s的47个高级教程">掌握k8s的47个高级教程</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/" title="了解Docker容器内外的MySQL拒绝服务错误">了解Docker容器内外的MySQL拒绝服务错误</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (5)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="http://yuedu.baidu.com/ebook/14a722970740be1e640e9a3e" title="Android Gradle权威指南">Android Gradle权威指南</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

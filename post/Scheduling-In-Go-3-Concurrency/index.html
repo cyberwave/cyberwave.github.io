@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Go的调度：第三部分 - 并发 | 听雪者的博客</title>
+    <meta property="og:title" content="Go的调度：第三部分 - 并发 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-26T17:38:44&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-26T17:38:44&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Go的调度：第三部分 - 并发">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">Go语言(golang)、区块链!</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#序幕">序幕</a></li>
+    <li><a href="#介绍">介绍</a></li>
+    <li><a href="#什么是并发">什么是并发</a></li>
+    <li><a href="#工作负载">工作负载</a></li>
+    <li><a href="#增加数字">增加数字</a></li>
+    <li><a href="#排序">排序</a></li>
+    <li><a href="#读取文件">读取文件</a>
+      <ul>
+        <li><a href="#结论">结论</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go的调度：第三部分 - 并发</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月26日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="序幕">序幕</h2>
+<p>这是分三部分的系列文章中的第三篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章专注于并发。</p>
+<p>三个部分系列的索引：</p>
+<ol>
+<li><a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part1.html">Go中的调度：第一部分-OS调度器</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part2.html">Go中的调度：第二部分-Go调度器</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2018/12/scheduling-in-go-part3.html">Go中的调度：第三部分-并发</a></li>
+</ol>
+<h2 id="介绍">介绍</h2>
+<p>当我解决问题时，特别是一个新问题时，我最初不会考虑并发是否合适。我首先依次寻找解决方案，并确保它能正常工作。然后，在经过可读性和技术审查之后，我将开始问并发是否合理可行。有时，很明显并发是一个很好的选择，而有时却不太清楚。</p>
+<p>在本系列的<a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part1.html">第一部分</a>中，我解释了OS调度器的机制和语义，如果您打算编写多线程代码，我认为它们很重要。在<a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part2.html">第二部分中</a>，我解释了Go调度器的语义，我认为这对于理解如何在Go中编写并发代码很重要。在本文中，我将开始将OS和Go调度器的机制和语义放在一起，以更深入地了解什么是并发。</p>
+<p>这篇文章的目标是：</p>
+<ul>
+<li>提供有关必须考虑的语义的指导，以确定工作负载是否适合使用并发。</li>
+<li>向您展示不同类型的工作负载如何改变语义，从而改变您要做出的工程决策。</li>
+</ul>
+<h2 id="什么是并发">什么是并发</h2>
+<p>并发意味着“乱序”执行。采取一组原本会按顺序执行的指令，并找到一种无序执行它们的方法，但仍会产生相同的结果。对于摆在您面前的问题，显而易见的是，无序执行会增加价值。当我说价值时，我的意思是为复杂性成本增加足够的性能。根据您的问题，可能无法执行乱序执行，甚至没有道理。</p>
+<p>同样重要的是要了解<a href="https://blog.golang.org/concurrency-is-not-parallelism">并发与并行性并不相同</a>。并行是指同时执行两个或更多指令。这是与并发不同的概念。只有在您拥有至少两个可用的操作系统（OS）和硬件线程，并且您至少有两个Goroutines时才可以并行处理，每个Goroutines在每个OS /硬件线程上独立执行指令。</p>
+<p><strong>图1：并发与并行</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/96_figure1.png" />   
+    </p>
+<p>在图1中，您可以看到两个逻辑处理器（P）的示意图，每个逻辑处理器（P）的独立OS线程（M）连接到计算机上的独立硬件线程（Core）。您会看到两个Goroutine（G1和G2）正在并行执行，同时在各自的OS /硬件线程上执行它们的指令。在每个逻辑处理器中，三个Goroutine轮流共享它们各自的OS线程。所有这些Goroutine都并发运行，以不特定的顺序执行它们的指令，并在OS线程上共享时间。</p>
+<p>麻烦的是，有时在没有并行的情况下利用并发实际上会减慢您的吞吐量。有趣的是，有时将并行性与并行性结合使用不会给您带来比您原本可以实现的更大的性能提升。</p>
+<h2 id="工作负载">工作负载</h2>
+<p>您怎么知道何时可能出现乱序执行或者是有意义的？了解您的问题正在处理的工作负载类型是一个很好的起点。在考虑并发性时，需要了解两种类型的工作负载。</p>
+<ul>
+<li>**CPU密集型：**这是一个永远不会导致Goroutines自然地进入和退出等待状态的工作负载。这是不断进行计算的工作。计算Pi到第N位的线程将是CPU密集型的。</li>
+<li>**IO密集型：**这是导致Goroutines自然进入等待状态的工作负载。这项工作包括请求通过网络访问资源，或对操作系统进行系统调用或等待事件发生。需要读取文件的Goroutine将是IO密集型。我将包括同步事件（互斥量，原子），这些事件会导致Goroutine等待作为该类别的一部分。</li>
+</ul>
+<p>对于CPU密集型的工作负载，您需要并行性以利用并发性。单个OS /硬件线程处理多个Goroutine效率不高，因为Goroutine不会作为工作负荷的一部分移入和移出等待状态。Goroutine的数量多于OS /硬件线程的数量，这会减慢工作负载的执行速度，这是因为将Goroutine移入和移出OS线程的延迟成本（所花费的时间）。上下文切换正在为您的工作负载创建一个“世界停止”事件，因为在切换过程中，如果没有其他工作负载，则不会执行任何工作负载。</p>
+<p>使用IO密集型的工作负载，您无需并行即可使用并发。单个OS /硬件线程可以高效地处理多个Goroutine，因为Goroutine作为工作量的一部分自然会进入和退出等待状态。Goroutine的数量多于OS /硬件线程的数量，可以加快工作负载的执行速度，因为在操作系统线程上上下移动Goroutine的延迟成本不会产生“ Stop The World”事件。您的工作负载自然停止了，这允许不同的Goroutine有效利用相同的OS /硬件线程，而不是让OS /硬件线程闲置。</p>
+<p>您如何知道每个硬件线程有多少个Goroutine提供最佳吞吐量？Goroutine太少，您有更多的空闲时间。Goroutine太多，您有更多的上下文切换延迟时间。这是您可以考虑的内容，但超出了此特定文章的范围。</p>
+<p>现在，重要的是查看一些代码以巩固您的能力，以识别工作负荷何时可以利用并发，何时不能利用并发以及是否需要并行性。</p>
+<h2 id="增加数字">增加数字</h2>
+<p>我们不需要复杂的代码来可视化和理解这些语义。查看以下命名<code>add</code>为整数集合的函数。</p>
+<p><strong>清单1</strong>
+<a href="https://play.golang.org/p/r9LdqUsEzEz">https://play.golang.org/p/r9LdqUsEzEz</a></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">36</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">add</span>(numbers []<span style="color:#458;font-weight:bold">int</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">37</span>     <span style="color:#000;font-weight:bold">var</span> v <span style="color:#458;font-weight:bold">int</span>
+<span style="color:#099">38</span>     <span style="color:#000;font-weight:bold">for</span> _, n <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> numbers {
+<span style="color:#099">39</span>         v <span style="color:#000;font-weight:bold">+=</span> n
+<span style="color:#099">40</span>     }
+<span style="color:#099">41</span>     <span style="color:#000;font-weight:bold">return</span> v
+<span style="color:#099">42</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在第36行的清单1中，声明了一个名为 <code>add</code> 的函数，该函数接收一个整数集合并返回该集合的总和。它从第37行开始，声明变量 <code>v</code> 来保存总和。然后在第38行，该函数线性遍历该集合，并且在第39行将每个数字加到当前总和。最后在第41行，该函数将最终总和返回给调用方。</p>
+<p>问题：该<code>add</code>函数是否适合于无序执行的工作负载？我相信答案是肯定的。整数的集合可以分解成较小的列表，并且这些列表可以同时处理。一旦所有较小的列表被求和，就可以将总和集加在一起以产生与顺序版本相同的答案。</p>
+<p>但是，我想到了另一个问题。为了获得最佳吞吐量，应独立创建和处理多少个较小的列表？要回答这个问题，您必须知道<code>add</code>正在执行哪种工作负载。该<code>add</code>函数正在执行CPU密集型的工作负载，因为该算法执行的是纯数学运算，并且它所做的任何操作都不会导致goroutine进入自然等待状态。这意味着每个OS /硬件线程仅使用一个Goroutine即可获得良好的吞吐量。</p>
+<p>下面的清单2是我的并发版本<code>add</code>。</p>
+<p><em>注意：编写并发版本的add时，可以采用几种方法和选项。现在不要挂在我的特定实现上。如果您有一个可读性更高的版本，其性能相同或更好，我希望与您分享。</em></p>
+<p><strong>清单2</strong>
+<a href="https://play.golang.org/p/r9LdqUsEzEz">https://play.golang.org/p/r9LdqUsEzEz</a></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">44</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">addConcurrent</span>(goroutines <span style="color:#458;font-weight:bold">int</span>, numbers []<span style="color:#458;font-weight:bold">int</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">45</span>     <span style="color:#000;font-weight:bold">var</span> v <span style="color:#458;font-weight:bold">int64</span>
+<span style="color:#099">46</span>     totalNumbers <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(numbers)
+<span style="color:#099">47</span>     lastGoroutine <span style="color:#000;font-weight:bold">:=</span> goroutines <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>
+<span style="color:#099">48</span>     stride <span style="color:#000;font-weight:bold">:=</span> totalNumbers <span style="color:#000;font-weight:bold">/</span> goroutines
+<span style="color:#099">49</span>
+<span style="color:#099">50</span>     <span style="color:#000;font-weight:bold">var</span> wg sync.WaitGroup
+<span style="color:#099">51</span>     wg.<span style="color:#900;font-weight:bold">Add</span>(goroutines)
+<span style="color:#099">52</span>
+<span style="color:#099">53</span>     <span style="color:#000;font-weight:bold">for</span> g <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; g &lt; goroutines; g<span style="color:#000;font-weight:bold">++</span> {
+<span style="color:#099">54</span>         <span style="color:#000;font-weight:bold">go</span> <span style="color:#000;font-weight:bold">func</span>(g <span style="color:#458;font-weight:bold">int</span>) {
+<span style="color:#099">55</span>             start <span style="color:#000;font-weight:bold">:=</span> g <span style="color:#000;font-weight:bold">*</span> stride
+<span style="color:#099">56</span>             end <span style="color:#000;font-weight:bold">:=</span> start <span style="color:#000;font-weight:bold">+</span> stride
+<span style="color:#099">57</span>             <span style="color:#000;font-weight:bold">if</span> g <span style="color:#000;font-weight:bold">==</span> lastGoroutine {
+<span style="color:#099">58</span>                 end = totalNumbers
+<span style="color:#099">59</span>             }
+<span style="color:#099">60</span>
+<span style="color:#099">61</span>             <span style="color:#000;font-weight:bold">var</span> lv <span style="color:#458;font-weight:bold">int</span>
+<span style="color:#099">62</span>             <span style="color:#000;font-weight:bold">for</span> _, n <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> numbers[start:end] {
+<span style="color:#099">63</span>                 lv <span style="color:#000;font-weight:bold">+=</span> n
+<span style="color:#099">64</span>             }
+<span style="color:#099">65</span>
+<span style="color:#099">66</span>             atomic.<span style="color:#900;font-weight:bold">AddInt64</span>(<span style="color:#000;font-weight:bold">&amp;</span>v, <span style="color:#0086b3">int64</span>(lv))
+<span style="color:#099">67</span>             wg.<span style="color:#900;font-weight:bold">Done</span>()
+<span style="color:#099">68</span>         }(g)
+<span style="color:#099">69</span>     }
+<span style="color:#099">70</span>
+<span style="color:#099">71</span>     wg.<span style="color:#900;font-weight:bold">Wait</span>()
+<span style="color:#099">72</span>
+<span style="color:#099">73</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#0086b3">int</span>(v)
+<span style="color:#099">74</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在清单2中，展示了该<code>addConcurrent</code>函数，它是该<code>add</code>函数的并发版本。并发版本使用26行代码，而不是非并发版本使用5行代码。有很多代码，所以我只强调要理解的重要内容。</p>
+<p>**第48行：**每个Goroutine将获得自己独特但较小的数字列表以进行添加。列表的大小是通过将集合的大小除以Goroutine的数量来计算的。</p>
+<p>**第53行：**创建Goroutine池以执行添加工作。</p>
+<p>**第57-59行：**最后一个Goroutine将添加剩余的可能比其他Goroutine大的数字列表。</p>
+<p>**第66行：**较小列表的总和加在一起成为最终总和。</p>
+<p>并发版本肯定比顺序版本更复杂，但是值得吗？回答这个问题的最好方法是创建一个基准。对于这些基准测试，我使用了1000万个数字的集合，并且关闭了垃圾收集器。有使用该<code>add</code>功能的顺序版本和使用该功能的并发版本<code>addConcurrent</code>。</p>
+<p><strong>清单3</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkSequential</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+    <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+        <span style="color:#900;font-weight:bold">add</span>(numbers)
+    }
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkConcurrent</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+    <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+        <span style="color:#900;font-weight:bold">addConcurrent</span>(runtime.<span style="color:#900;font-weight:bold">NumCPU</span>(), numbers)
+    }
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>清单3显示了基准功能。这是所有Goroutines仅具有一个OS /硬件线程时的结果。顺序版本正在使用1个Goroutine，而并行版本正在使用<code>runtime.NumCPU</code>或8个Goroutine。在这种情况下，并发版本利用并发而没有并行性。</p>
+<p><strong>清单4</strong></p>
+<pre><code>10 Million Numbers using 8 goroutines with 1 core
+2.9 GHz Intel 4 Core i7
+Concurrency WITHOUT Parallelism
+-----------------------------------------------------------------------------
+$ GOGC=off go test -cpu 1 -run none -bench . -benchtime 3s
+goos: darwin
+goarch: amd64
+pkg: github.com/ardanlabs/gotraining/topics/go/testing/benchmarks/cpu-bound
+BenchmarkSequential      	    1000	   5720764 ns/op : ~10% Faster
+BenchmarkConcurrent      	    1000	   6387344 ns/op
+BenchmarkSequentialAgain 	    1000	   5614666 ns/op : ~13% Faster
+BenchmarkConcurrentAgain 	    1000	   6482612 ns/op
+</code></pre><p><em>注意：在本地计算机上运行基准测试很复杂。有太多因素可能导致基准测试不准确。确保您的计算机尽可能空闲，并运行几次基准测试。您要确保结果一致。由测试工具运行两次基准测试可以使该基准测试获得最一致的结果。</em></p>
+<p>清单4中的基准测试表明，当所有Goroutines仅具有一个OS /硬件线程时，Sequential版本比Concurrent大约快10％到13％。这是我所期望的，因为并发版本具有在单个OS线程上进行上下文切换和对Goroutine进行管理的开销。</p>
+<p>这是每个Goroutine都有单独的OS /硬件线程时的结果。顺序版本正在使用1个Goroutine，而并行版本正在使用<code>runtime.NumCPU</code>或8个Goroutine。在这种情况下，并发版本将并发与并行性结合起来。</p>
+<p><strong>清单5</strong></p>
+<pre><code>10 Million Numbers using 8 goroutines with 8 cores
+2.9 GHz Intel 4 Core i7
+Concurrency WITH Parallelism
+-----------------------------------------------------------------------------
+$ GOGC=off go test -cpu 8 -run none -bench . -benchtime 3s
+goos: darwin
+goarch: amd64
+pkg: github.com/ardanlabs/gotraining/topics/go/testing/benchmarks/cpu-bound
+BenchmarkSequential-8        	    1000	   5910799 ns/op
+BenchmarkConcurrent-8        	    2000	   3362643 ns/op : ~43% Faster
+BenchmarkSequentialAgain-8   	    1000	   5933444 ns/op
+BenchmarkConcurrentAgain-8   	    2000	   3477253 ns/op : ~41% Faster
+</code></pre><p>清单5中的基准测试表明，当每个Goroutine有单独的OS /硬件线程时，并发版本比顺序版本快41％至43％。这是我所期望的，因为所有Goroutine现在都并行运行，八个Goroutine同时执行其并发工作。</p>
+<h2 id="排序">排序</h2>
+<p>重要的是要了解并非所有受CPU约束的工作负载都适用于并发。当分解工作和/或合并所有结果非常昂贵时，这是基本正确的。使用称为冒泡排序的排序算法可以看到一个示例。查看以下在Go中实现Bubble排序的代码。</p>
+<p><strong>清单6</strong>
+<a href="https://play.golang.org/p/S0Us1wYBqG6">https://play.golang.org/p/S0Us1wYBqG6</a></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#099">02</span>
+<span style="color:#099">03</span> <span style="color:#000;font-weight:bold">import</span> <span style="color:#d14">&#34;fmt&#34;</span>
+<span style="color:#099">04</span>
+<span style="color:#099">05</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">bubbleSort</span>(numbers []<span style="color:#458;font-weight:bold">int</span>) {
+<span style="color:#099">06</span>     n <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(numbers)
+<span style="color:#099">07</span>     <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; n; i<span style="color:#000;font-weight:bold">++</span> {
+<span style="color:#099">08</span>         <span style="color:#000;font-weight:bold">if</span> !<span style="color:#900;font-weight:bold">sweep</span>(numbers, i) {
+<span style="color:#099">09</span>             <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">10</span>         }
+<span style="color:#099">11</span>     }
+<span style="color:#099">12</span> }
+<span style="color:#099">13</span>
+<span style="color:#099">14</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">sweep</span>(numbers []<span style="color:#458;font-weight:bold">int</span>, currentPass <span style="color:#458;font-weight:bold">int</span>) <span style="color:#458;font-weight:bold">bool</span> {
+<span style="color:#099">15</span>     <span style="color:#000;font-weight:bold">var</span> idx <span style="color:#458;font-weight:bold">int</span>
+<span style="color:#099">16</span>     idxNext <span style="color:#000;font-weight:bold">:=</span> idx <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>
+<span style="color:#099">17</span>     n <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(numbers)
+<span style="color:#099">18</span>     <span style="color:#000;font-weight:bold">var</span> swap <span style="color:#458;font-weight:bold">bool</span>
+<span style="color:#099">19</span>
+<span style="color:#099">20</span>     <span style="color:#000;font-weight:bold">for</span> idxNext &lt; (n <span style="color:#000;font-weight:bold">-</span> currentPass) {
+<span style="color:#099">21</span>         a <span style="color:#000;font-weight:bold">:=</span> numbers[idx]
+<span style="color:#099">22</span>         b <span style="color:#000;font-weight:bold">:=</span> numbers[idxNext]
+<span style="color:#099">23</span>         <span style="color:#000;font-weight:bold">if</span> a &gt; b {
+<span style="color:#099">24</span>             numbers[idx] = b
+<span style="color:#099">25</span>             numbers[idxNext] = a
+<span style="color:#099">26</span>             swap = <span style="color:#000;font-weight:bold">true</span>
+<span style="color:#099">27</span>         }
+<span style="color:#099">28</span>         idx<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">29</span>         idxNext = idx <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>
+<span style="color:#099">30</span>     }
+<span style="color:#099">31</span>     <span style="color:#000;font-weight:bold">return</span> swap
+<span style="color:#099">32</span> }
+<span style="color:#099">33</span>
+<span style="color:#099">34</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+<span style="color:#099">35</span>     org <span style="color:#000;font-weight:bold">:=</span> []<span style="color:#458;font-weight:bold">int</span>{<span style="color:#099">1</span>, <span style="color:#099">3</span>, <span style="color:#099">2</span>, <span style="color:#099">4</span>, <span style="color:#099">8</span>, <span style="color:#099">6</span>, <span style="color:#099">7</span>, <span style="color:#099">2</span>, <span style="color:#099">3</span>, <span style="color:#099">0</span>}
+<span style="color:#099">36</span>     fmt.<span style="color:#900;font-weight:bold">Println</span>(org)
+<span style="color:#099">37</span>
+<span style="color:#099">38</span>     <span style="color:#900;font-weight:bold">bubbleSort</span>(org)
+<span style="color:#099">39</span>     fmt.<span style="color:#900;font-weight:bold">Println</span>(org)
+<span style="color:#099">40</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在清单6中，有一个用Go编写的Bubble排序示例。这种排序算法会在每次通过时扫描整数交换值的集合。根据列表的顺序，在对所有内容进行排序之前，可能需要多次通过集合。</p>
+<p>问题：该<code>bubbleSort</code>功能是否适合于无序执行的工作负载？我相信答案是否定的。整数的集合可以分解为较小的列表，并且这些列表可以同时排序。但是，在完成所有并发工作之后，没有有效的方法将较小的列表分类在一起。这是冒泡排序的并发版本的示例。</p>
+<p><strong>清单8</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">bubbleSortConcurrent</span>(goroutines <span style="color:#458;font-weight:bold">int</span>, numbers []<span style="color:#458;font-weight:bold">int</span>) {
+<span style="color:#099">02</span>     totalNumbers <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(numbers)
+<span style="color:#099">03</span>     lastGoroutine <span style="color:#000;font-weight:bold">:=</span> goroutines <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>
+<span style="color:#099">04</span>     stride <span style="color:#000;font-weight:bold">:=</span> totalNumbers <span style="color:#000;font-weight:bold">/</span> goroutines
+<span style="color:#099">05</span>
+<span style="color:#099">06</span>     <span style="color:#000;font-weight:bold">var</span> wg sync.WaitGroup
+<span style="color:#099">07</span>     wg.<span style="color:#900;font-weight:bold">Add</span>(goroutines)
+<span style="color:#099">08</span>
+<span style="color:#099">09</span>     <span style="color:#000;font-weight:bold">for</span> g <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; g &lt; goroutines; g<span style="color:#000;font-weight:bold">++</span> {
+<span style="color:#099">10</span>         <span style="color:#000;font-weight:bold">go</span> <span style="color:#000;font-weight:bold">func</span>(g <span style="color:#458;font-weight:bold">int</span>) {
+<span style="color:#099">11</span>             start <span style="color:#000;font-weight:bold">:=</span> g <span style="color:#000;font-weight:bold">*</span> stride
+<span style="color:#099">12</span>             end <span style="color:#000;font-weight:bold">:=</span> start <span style="color:#000;font-weight:bold">+</span> stride
+<span style="color:#099">13</span>             <span style="color:#000;font-weight:bold">if</span> g <span style="color:#000;font-weight:bold">==</span> lastGoroutine {
+<span style="color:#099">14</span>                 end = totalNumbers
+<span style="color:#099">15</span>             }
+<span style="color:#099">16</span>
+<span style="color:#099">17</span>             <span style="color:#900;font-weight:bold">bubbleSort</span>(numbers[start:end])
+<span style="color:#099">18</span>             wg.<span style="color:#900;font-weight:bold">Done</span>()
+<span style="color:#099">19</span>         }(g)
+<span style="color:#099">20</span>     }
+<span style="color:#099">21</span>
+<span style="color:#099">22</span>     wg.<span style="color:#900;font-weight:bold">Wait</span>()
+<span style="color:#099">23</span>
+<span style="color:#099">24</span>     <span style="color:#998;font-style:italic">// Ugh, we have to sort the entire list again.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">25</span>     <span style="color:#900;font-weight:bold">bubbleSort</span>(numbers)
+<span style="color:#099">26</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在清单8中，提供了该<code>bubbleSortConcurrent</code>函数，它是该<code>bubbleSort</code>函数的并发版本。它使用多个Goroutines同时对列表的各个部分进行排序。但是，剩下的是按块排序的值的列表。给定一个由36个数字组成的列表，分为12组，如果整个列表不在第25行中再次排序，则将成为结果列表。</p>
+<p><strong>清单9</strong></p>
+<pre><code>Before:
+  25 51 15 57 87 10 10 85 90 32 98 53
+  91 82 84 97 67 37 71 94 26  2 81 79
+  66 70 93 86 19 81 52 75 85 10 87 49
+
+After:
+  10 10 15 25 32 51 53 57 85 87 90 98
+   2 26 37 67 71 79 81 82 84 91 94 97
+  10 19 49 52 66 70 75 81 85 86 87 93
+</code></pre><p>由于冒泡排序的本质是要遍历整个列表，因此<code>bubbleSort</code>对第25行的调用将抵消使用并发的任何潜在收益。使用冒泡排序，使用并发不会提高性能。</p>
+<h2 id="读取文件">读取文件</h2>
+<p>已经介绍了两个CPU限制的工作负载，但是IO限制的工作负载怎么办？当Goroutines自然地进出等待状态时，语义是否有所不同？看一看IO-Bound工作负载，该工作负载读取文件并执行文本搜索。</p>
+<p>此第一个版本是的函数的顺序版本<code>find</code>。</p>
+<p><strong>清单10</strong>
+<a href="https://play.golang.org/p/8gFe5F8zweN">https://play.golang.org/p/8gFe5F8zweN</a></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">42</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">find</span>(topic <span style="color:#458;font-weight:bold">string</span>, docs []<span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">43</span>     <span style="color:#000;font-weight:bold">var</span> found <span style="color:#458;font-weight:bold">int</span>
+<span style="color:#099">44</span>     <span style="color:#000;font-weight:bold">for</span> _, doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> docs {
+<span style="color:#099">45</span>         items, err <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">read</span>(doc)
+<span style="color:#099">46</span>         <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">47</span>             <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">48</span>         }
+<span style="color:#099">49</span>         <span style="color:#000;font-weight:bold">for</span> _, item <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> items {
+<span style="color:#099">50</span>             <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Description, topic) {
+<span style="color:#099">51</span>                 found<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">52</span>             }
+<span style="color:#099">53</span>         }
+<span style="color:#099">54</span>     }
+<span style="color:#099">55</span>     <span style="color:#000;font-weight:bold">return</span> found
+<span style="color:#099">56</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在清单10中，您可以看到该<code>find</code>函数的顺序版本。在第43行，<code>found</code>声明了一个名为的变量，用于维护<code>topic</code>在给定文档中找到指定变量的次数。然后在第44行，遍历文档，并使用<code>read</code>函数在第45行读取每个文档。最后，在第49-53行，该包中的<code>Contains</code>函数<code>strings</code>用于检查是否可以在从文档读取的项目集合中找到该主题。如果找到该主题，则<code>found</code>变量加1。</p>
+<p>这是<code>read</code>所调用的函数的实现<code>find</code>。</p>
+<p><strong>清单11</strong>
+<a href="https://play.golang.org/p/8gFe5F8zweN">https://play.golang.org/p/8gFe5F8zweN</a></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">33</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">read</span>(doc <span style="color:#458;font-weight:bold">string</span>) ([]item, <span style="color:#458;font-weight:bold">error</span>) {
+<span style="color:#099">34</span>     time.<span style="color:#900;font-weight:bold">Sleep</span>(time.Millisecond) <span style="color:#998;font-style:italic">// Simulate blocking disk read.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">35</span>     <span style="color:#000;font-weight:bold">var</span> d document
+<span style="color:#099">36</span>     <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">:=</span> xml.<span style="color:#900;font-weight:bold">Unmarshal</span>([]<span style="color:#0086b3">byte</span>(file), <span style="color:#000;font-weight:bold">&amp;</span>d); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">37</span>         <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">nil</span>, err
+<span style="color:#099">38</span>     }
+<span style="color:#099">39</span>     <span style="color:#000;font-weight:bold">return</span> d.Channel.Items, <span style="color:#000;font-weight:bold">nil</span>
+<span style="color:#099">40</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p><code>read</code>清单11中的函数<code>time.Sleep</code>以一毫秒的调用开始。如果我们执行实际的系统调用以从磁盘读取文档，则此调用用于模拟可能产生的延迟。此延迟的一致性对于准确测量顺序版本<code>find</code>对并发版本的性能很重要。然后在第35-39行，将存储在全局变量中的模拟xml文档<code>file</code>解编为结构值以进行处理。最后，第39行将一组项目返回给调用方。</p>
+<p>有了顺序版本后，这里是并发版本。</p>
+<p><em>注意：在编写并发版本的find时，可以采用几种方法和选项。现在不要挂在我的特定实现上。如果您有一个可读性更高的版本，其性能相同或更好，我希望与您分享。</em></p>
+<p><strong>清单12</strong>
+<a href="https://play.golang.org/p/8gFe5F8zweN">https://play.golang.org/p/8gFe5F8zweN</a></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">58</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">findConcurrent</span>(goroutines <span style="color:#458;font-weight:bold">int</span>, topic <span style="color:#458;font-weight:bold">string</span>, docs []<span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">59</span>     <span style="color:#000;font-weight:bold">var</span> found <span style="color:#458;font-weight:bold">int64</span>
+<span style="color:#099">60</span>
+<span style="color:#099">61</span>     ch <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>(<span style="color:#000;font-weight:bold">chan</span> <span style="color:#458;font-weight:bold">string</span>, <span style="color:#0086b3">len</span>(docs))
+<span style="color:#099">62</span>     <span style="color:#000;font-weight:bold">for</span> _, doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> docs {
+<span style="color:#099">63</span>         ch <span style="color:#000;font-weight:bold">&lt;-</span> doc
+<span style="color:#099">64</span>     }
+<span style="color:#099">65</span>     <span style="color:#0086b3">close</span>(ch)
+<span style="color:#099">66</span>
+<span style="color:#099">67</span>     <span style="color:#000;font-weight:bold">var</span> wg sync.WaitGroup
+<span style="color:#099">68</span>     wg.<span style="color:#900;font-weight:bold">Add</span>(goroutines)
+<span style="color:#099">69</span>
+<span style="color:#099">70</span>     <span style="color:#000;font-weight:bold">for</span> g <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; g &lt; goroutines; g<span style="color:#000;font-weight:bold">++</span> {
+<span style="color:#099">71</span>         <span style="color:#000;font-weight:bold">go</span> <span style="color:#000;font-weight:bold">func</span>() {
+<span style="color:#099">72</span>             <span style="color:#000;font-weight:bold">var</span> lFound <span style="color:#458;font-weight:bold">int64</span>
+<span style="color:#099">73</span>             <span style="color:#000;font-weight:bold">for</span> doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> ch {
+<span style="color:#099">74</span>                 items, err <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">read</span>(doc)
+<span style="color:#099">75</span>                 <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">76</span>                     <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">77</span>                 }
+<span style="color:#099">78</span>                 <span style="color:#000;font-weight:bold">for</span> _, item <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> items {
+<span style="color:#099">79</span>                     <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Description, topic) {
+<span style="color:#099">80</span>                         lFound<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">81</span>                     }
+<span style="color:#099">82</span>                 }
+<span style="color:#099">83</span>             }
+<span style="color:#099">84</span>             atomic.<span style="color:#900;font-weight:bold">AddInt64</span>(<span style="color:#000;font-weight:bold">&amp;</span>found, lFound)
+<span style="color:#099">85</span>             wg.<span style="color:#900;font-weight:bold">Done</span>()
+<span style="color:#099">86</span>         }()
+<span style="color:#099">87</span>     }
+<span style="color:#099">88</span>
+<span style="color:#099">89</span>     wg.<span style="color:#900;font-weight:bold">Wait</span>()
+<span style="color:#099">90</span>
+<span style="color:#099">91</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#0086b3">int</span>(found)
+<span style="color:#099">92</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在清单12中，展示了该<code>findConcurrent</code>函数，它是该<code>find</code>函数的并发版本。并发版本使用30行代码，而非并发版本则使用13行代码。我实现并发版本的目标是控制用于处理未知数量文档的Goroutine的数量。我选择了一种使用通道来填充Goroutines池的池化模式。</p>
+<p>有很多代码，所以我只强调要理解的重要内容。</p>
+<p>**第61-64行：**创建了一个通道，并填充了所有要处理的文档。</p>
+<p>**65行：**通道已关闭，因此在处理所有文档时，Goroutine池自然终止。</p>
+<p>**第70行：**创建了Goroutines池。</p>
+<p>**73-83行：**池中的每个Goroutine都从通道接收一个文档，将该文档读入内存并检查该主题的内容。匹配时，本地找到的变量增加。</p>
+<p>**第84行：**各个Goroutine计数的总和加在一起成为最终计数。</p>
+<p>并发版本肯定比顺序版本更复杂，但是值得吗？再次回答这个问题的最好方法是创建一个基准。对于这些基准，我使用了关闭垃圾收集器的一千个文档的集合。有使用该<code>find</code>功能的顺序版本和使用该功能的并发版本<code>findConcurrent</code>。</p>
+<p><strong>清单13</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkSequential</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+    <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+        <span style="color:#900;font-weight:bold">find</span>(<span style="color:#d14">&#34;test&#34;</span>, docs)
+    }
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkConcurrent</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+    <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+        <span style="color:#900;font-weight:bold">findConcurrent</span>(runtime.<span style="color:#900;font-weight:bold">NumCPU</span>(), <span style="color:#d14">&#34;test&#34;</span>, docs)
+    }
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>清单13显示了基准功能。这是所有Goroutines仅具有一个OS /硬件线程时的结果。顺序<code>runtime.NumCPU</code>在我的机器上使用1个Goroutine，并发版本在使用或8个Goroutine。在这种情况下，并发版本利用并发而没有并行性。</p>
+<p><strong>清单14</strong></p>
+<pre><code>10 Thousand Documents using 8 goroutines with 1 core
+2.9 GHz Intel 4 Core i7
+Concurrency WITHOUT Parallelism
+-----------------------------------------------------------------------------
+$ GOGC=off go test -cpu 1 -run none -bench . -benchtime 3s
+goos: darwin
+goarch: amd64
+pkg: github.com/ardanlabs/gotraining/topics/go/testing/benchmarks/io-bound
+BenchmarkSequential      	       3	1483458120 ns/op
+BenchmarkConcurrent      	      20	 188941855 ns/op : ~87% Faster
+BenchmarkSequentialAgain 	       2	1502682536 ns/op
+BenchmarkConcurrentAgain 	      20	 184037843 ns/op : ~88% Faster
+</code></pre><p>清单14中的基准测试表明，当所有Goroutines仅具有一个OS /硬件线程时，并发版本比顺序版本快大约87％至88％。这是我所期望的，因为所有Goroutine都有效地共享了单个OS /硬件线程。<code>read</code>调用中每个Goroutine发生的自然上下文切换允许随着时间的流逝在单个OS /硬件线程上完成更多工作。</p>
+<p>这是将并发与并行性结合使用时的基准。</p>
+<p><strong>清单15</strong></p>
+<pre><code>10 Thousand Documents using 8 goroutines with 1 core
+2.9 GHz Intel 4 Core i7
+Concurrency WITH Parallelism
+-----------------------------------------------------------------------------
+$ GOGC=off go test -run none -bench . -benchtime 3s
+goos: darwin
+goarch: amd64
+pkg: github.com/ardanlabs/gotraining/topics/go/testing/benchmarks/io-bound
+BenchmarkSequential-8        	       3	1490947198 ns/op
+BenchmarkConcurrent-8        	      20	 187382200 ns/op : ~88% Faster
+BenchmarkSequentialAgain-8   	       3	1416126029 ns/op
+BenchmarkConcurrentAgain-8   	      20	 185965460 ns/op : ~87% Faster
+</code></pre><p>清单15中的基准测试表明，引入额外的OS /硬件线程不会提供任何更好的性能。</p>
+<h3 id="结论">结论</h3>
+<p>这篇文章的目的是提供有关必须考虑的语义的指导，以确定工作负载是否适合使用并发。我试图提供不同类型的算法和工作负载的示例，以便您可以看到语义上的差异以及需要考虑的不同工程决策。</p>
+<p>您可以清楚地看到，对于IO-Bound工作负载，不需要并行处理就可以大大提高性能。这与您看到的CPU绑定工作相反。当涉及像冒泡排序这样的算法时，并发的使用会增加复杂性，而没有任何真正的性能优势。确定您的工作负载是否适合并发，然后确定必须使用正确的语义的工作负载类型非常重要。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/Scheduling-In-Go-2-GO-Scheduler/">Go的调度：第二部分 - Go调度器</a></li>
+        
+        <li><a href="/post/Scheduling-In-Go-1-OS-Scheduler/">Go调度：第一部分-操作系统调度</a></li>
+        
+        <li><a href="/post/bad-go-of-return-pointer/">Go返回指针的坏处</a></li>
+        
+        <li><a href="/post/grep-search-for-strings/">Grep Search for Strings</a></li>
+        
+        <li><a href="/post/visualizing-memory-management-in-golang/">Golang的可视化内存管理</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/%E8%B0%83%E5%BA%A6'>调度</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go调度：第一部分-操作系统调度">Go调度：第一部分-操作系统调度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/grep-search-for-strings/" title="Grep Search for Strings">Grep Search for Strings</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/visualizing-memory-management-in-golang/" title="Golang的可视化内存管理">Golang的可视化内存管理</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/" title="掌握k8s的47个高级教程">掌握k8s的47个高级教程</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/" title="了解Docker容器内外的MySQL拒绝服务错误">了解Docker容器内外的MySQL拒绝服务错误</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (5)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="http://yuedu.baidu.com/ebook/14a722970740be1e640e9a3e" title="Android Gradle权威指南">Android Gradle权威指南</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

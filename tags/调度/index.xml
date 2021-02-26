@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>golang on 听雪者的博客</title>
-    <link>https://cyberwave.github.io/categories/golang/</link>
-    <description>Recent content in golang on 听雪者的博客</description>
+    <title>调度 on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/</link>
+    <description>Recent content in 调度 on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Fri, 26 Feb 2021 17:38:44 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/categories/golang/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Fri, 26 Feb 2021 17:38:44 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Go的调度：第三部分 - 并发</title>
       <link>https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/</link>
@@ -32,24 +32,6 @@
       
       <guid>https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/</guid>
       <description>[译] Scheduling In Go : Part I - OS Scheduler 序幕 这是一个由三部分组成的系列文章的第一篇。它将提供对 Go 调度器背后的机制和语义的理解。这篇文章着重于操作系统调度器。</description>
-    </item>
-    
-    <item>
-      <title>Go返回指针的坏处</title>
-      <link>https://cyberwave.github.io/post/bad-go-of-return-pointer/</link>
-      <pubDate>Fri, 26 Feb 2021 10:42:47 +0800</pubDate>
-      
-      <guid>https://cyberwave.github.io/post/bad-go-of-return-pointer/</guid>
-      <description>[译] Bad Go: pointer returns 作为一个不再年轻的C程序员，我苦恼于一点：函数返回结构体的指针是完全正常的。但我感觉这是Go的坏处，通常我认为返回结构体的值会</description>
-    </item>
-    
-    <item>
-      <title>Golang的可视化内存管理</title>
-      <link>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</link>
-      <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
-      
-      <guid>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</guid>
-      <description>原文：🚀 Visualizing memory management in Golang 在本章中， 我们将研究 Go 编程语言（golang）的内存管理。Go 是一种静态类型化和编译的语言，和 C/C++ 和 Rust一样。因此，Go</description>
     </item>
     
   </channel>

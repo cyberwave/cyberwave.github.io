@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Go的调度：第二部分 - Go调度器 | 听雪者的博客</title>
+    <meta property="og:title" content="Go的调度：第二部分 - Go调度器 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-26T14:15:42&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-26T14:15:42&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Go的调度：第二部分 - Go调度器">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">Go语言(golang)、区块链!</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#序幕">序幕</a></li>
+    <li><a href="#介绍">介绍</a></li>
+    <li><a href="#您的程序开始">您的程序开始</a></li>
+    <li><a href="#合作调度器">合作调度器</a></li>
+    <li><a href="#goroutine状态">Goroutine状态</a></li>
+    <li><a href="#上下文切换">上下文切换</a></li>
+    <li><a href="#异步系统调用">异步系统调用</a></li>
+    <li><a href="#同步系统调用">同步系统调用</a></li>
+    <li><a href="#工作偷窃">工作偷窃</a></li>
+    <li><a href="#实际例子">实际例子</a>
+      <ul>
+        <li><a href="#结论">结论</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go的调度：第二部分 - Go调度器</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月26日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="序幕">序幕</h2>
+<p>这是一个由三部分组成的系列文章中的第二篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章重点介绍Go调度器。</p>
+<p>三个部分系列的索引：</p>
+<ol>
+<li><a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part1.html">Go中的调度：第一部分-OS调度器</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part2.html">Go中的调度：第二部分-Go调度器</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2018/12/scheduling-in-go-part3.html">Go中的调度：第三部分-并发</a></li>
+</ol>
+<h2 id="介绍">介绍</h2>
+<p>在该调度系列的<a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part1.html">第一部分</a>中，我解释了操作系统调度器的各个方面，我认为这些方面对于理解和欣赏Go调度器的语义很重要。在本文中，我将在语义级别上讲解Go调度器的工作方式，并着重于高级行为。Go调度器是一个复杂的系统，一些机械细节并不重要。重要的是要有一个良好的模型来说明事物的工作方式和行为方式。这将使您做出更好的工程决策。</p>
+<h2 id="您的程序开始">您的程序开始</h2>
+<p>当您的Go程序启动时，会为主机上标识的每个虚拟核提供一个逻辑处理器（P）。如果您的处理器每个物理内核上具有多个硬件线程（<a href="https://en.wikipedia.org/wiki/Hyper-threading">Hyper-Threading</a>），则每个硬件线程将作为虚拟核心呈现给您的Go程序。为了更好地理解这一点，请查看我的MacBook Pro的系统报告。</p>
+<p><strong>图1</strong></p>
+<p>+++</p>
+<p><strong>Hardware Overview:</strong></p>
+<p>Model Name:                   MacBook Pro</p>
+<p>Model Identifier:              MacBookPro13,3</p>
+<p>Processor Name:             Intel Core i7</p>
+<p>Processor Speed:             2.9GHz</p>
+<p>Number of Processors:   1</p>
+<p>Total Number of Cores:   4</p>
+<p>L2 Cache (per Core):         256 KB</p>
+<p>L3 Cache:                            8MB</p>
+<p>Memory:                             16GB</p>
+<p>+++</p>
+<p>您可以看到我有一个具有4个物理内核的处理器。该报告未公开的是我每个物理核心拥有的硬件线程数。英特尔酷睿i7处理器具有超线程功能，这意味着每个物理内核有2个硬件线程。这将向Go程序报告8个虚拟内核可用于并行执行OS线程。</p>
+<p>要对此进行测试，请考虑以下程序：</p>
+<p><strong>清单1</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">package</span> main
+
+<span style="color:#000;font-weight:bold">import</span> (
+	<span style="color:#d14">&#34;fmt&#34;</span>
+	<span style="color:#d14">&#34;runtime&#34;</span>
+)
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+
+    <span style="color:#998;font-style:italic">// NumCPU returns the number of logical
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">// CPUs usable by the current process.
+</span><span style="color:#998;font-style:italic"></span>    fmt.<span style="color:#900;font-weight:bold">Println</span>(runtime.<span style="color:#900;font-weight:bold">NumCPU</span>())
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>当我在本地计算机上运行该程序时，<code>NumCPU()</code> 函数调用的结果将为8。我在计算机上运行的任何Go程序都将获得8处理器(P)。</p>
+<p>每个P都分配有一个OS线程（“ M”）。“ M”代表机器。这个线程仍然是由操作系统管理，OS仍然负责将线程放到内核上的执行，如在<a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part1.html">最后博客</a>解释的。这意味着，当我在计算机上运行Go程序时，我有8个线程可以执行我的工作，每个线程都单独连接到P。</p>
+<p>每个Go程序还会获得一个初始Goroutine（“ G”），这是Go程序的执行路径。Goroutine本质上是一个<a href="https://en.wikipedia.org/wiki/Coroutine">协程</a>，但这就是Go，因此我们将字母“ C”替换为“ G”，然后得到单词Goroutine。您可以将Goroutines视为应用程序级线程，并且它们在许多方面类似于OS线程。就像OS线程在内核中进行上下文切换一样，Goroutine在M时进行上下文切换。</p>
+<p>最后一个难题是运行队列。Go调度器中有两个不同的运行队列：全局运行队列（GRQ）和本地运行队列（LRQ）。每个P都有一个LRQ，该LRQ管理分配给在P上下文中执行的Goroutine。这些Goroutine轮流被上下文切换到或切换出分配给该P的M。GRQ用于尚未分配给P的Goroutine。将Goroutines从GRQ转移到LRQ的过程，我们将在后面讨论。</p>
+<p>图2提供了所有这些组件的图像。</p>
+<p><strong>图2</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure2.png" />   
+    </p>
+<h2 id="合作调度器">合作调度器</h2>
+<p>正如我们在第一篇文章中所讨论的，OS调度器是抢占式调度器。从本质上讲，这意味着您无法在任何给定时间预测调度器将要执行的操作。内核在做决定，而一切都是不确定的。运行在OS之上的应用程序无法通过调度来控制内核内部发生的事情，除非它们利用了诸如<a href="https://en.wikipedia.org/wiki/Linearizability">原子</a>指令和<a href="https://en.wikipedia.org/wiki/Lock_(computer_science)">互斥</a>调用之类的同步原语。</p>
+<p>Go调度器是Go运行时的一部分，并且Go运行时已内置到您的应用程序中。这意味着Go调度器在内核上方的<a href="https://en.wikipedia.org/wiki/User_space">用户空间中</a>运行。Go调度器的当前实现不是抢占式调度器，而是<a href="https://en.wikipedia.org/wiki/Cooperative_multitasking">协作</a>式调度器。成为协作调度器意味着调度器需要在代码的安全点发生的定义明确的用户空间事件，以制定调度决策。</p>
+<p>Go合作调度器的出色之处在于它看起来和感觉都是抢先的。您无法预测Go调度器将要执行的操作。这是因为，此协作调度器的决策权不掌握在开发人员手中，而在于Go运行时。将Go调度器视为抢先式调度器很重要，并且由于该调度器是不确定的，因此这并不有更多的延伸。</p>
+<h2 id="goroutine状态">Goroutine状态</h2>
+<p>就像线程一样，Goroutines具有相同的三个高级状态。这些决定了Go调度器在任何给定Goroutine中所扮演的角色。Goroutine可以处于以下三种状态之一：<em>Waiting</em>，<em>Runnable</em>或<em>Executing</em>。</p>
+<p><strong>Waiting</strong>：这意味着Goroutine已停止，正在等待某些东西才能继续。这可能是由于诸如等待操作系统（系统调用）或同步调用（原子和互斥操作）之类的原因。这些类型的<a href="https://en.wikipedia.org/wiki/Latency_(engineering)">延迟</a>是导致性能<a href="https://en.wikipedia.org/wiki/Latency_(engineering)">下降</a>的根本原因。</p>
+<p><strong>Runnable</strong>：这意味着Goroutine想要在M时间，以便可以执行其分配的指令。如果您有很多需要时间的Goroutine，那么Goroutine必须等待更长的时间才能获得时间。而且，随着更多Goroutine争夺时间，任何给定Goroutine所获得的时间都将缩短。这种类型的调度等待时间也可能是导致性能下降的原因。</p>
+<p><strong>Executing</strong>：这意味着Goroutine已放置在M上并正在执行其指令。与应用程序相关的工作已经完成。这就是每个人都想要的。</p>
+<h2 id="上下文切换">上下文切换</h2>
+<p>Go调度器需要定义明确的用户空间事件，这些事件发生在代码中的安全点处，以便从上下文进行切换。这些事件和安全点在函数调用中体现出来。函数调用对于Go调度器的运行状况至关重要。现在（使用Go 1.11或更低版本），如果运行任何未进行函数调用的紧密循环，则将导致调度器和垃圾回收中的延迟。在合理的时间范围内进行函数调用至关重要。</p>
+<p><em>注意：有一个<a href="https://github.com/golang/go/issues/24543">提案</a>1.12已被接受，可以在Go调度器中应用非合作式抢占技术，以允许抢占紧密循环。</em></p>
+<p>Go程序中发生了四类事件，这些事件使调度程序可以制定计划决策。这并不意味着它将总是在这些事件之一中发生。这意味着调度器有机会。</p>
+<ul>
+<li>关键字的使用 <code>go</code></li>
+<li>垃圾收集</li>
+<li>系统调用</li>
+<li>同步与编排</li>
+</ul>
+<p><strong>关键字的使用 <code>go</code></strong></p>
+<p>关键字<code>go</code>是创建Goroutines的方式。一旦创建了新的Goroutine，它将为调度器提供做出调度决策的机会。</p>
+<p><strong>垃圾收集</strong></p>
+<p>由于GC使用自己的Goroutine集合运行，因此这些Goroutine需要M上的时间才能运行。这导致GC造成很多调度混乱。但是，调度器对于Goroutine所做的事情非常聪明，它将利用该情报做出明智的决策。一个明智的决定是上下文切换一个Goroutine，该Goroutine要与GC期间不接触堆的Goroutine接触。当GC运行时，将制定许多计划决策。</p>
+<p><strong>系统调用</strong></p>
+<p>如果Goroutine进行系统调用会导致Goroutine阻塞M，则调度器有时能够将Goroutine从M上下文切换出，并将使用上下文切换将新Goroutine切换到相同的M。但是，有时新的M是保持执行在P中排队的Goroutine。下一部分将详细说明其工作方式。</p>
+<p><strong>同步与编排</strong></p>
+<p>如果原子，互斥或通道操作调用将导致Goroutine阻塞，则调度器可以上下文切换运行新的Goroutine。一旦Goroutine可以再次运行，就可以对其重新排队，并最终在M上进行上下文切换。</p>
+<h2 id="异步系统调用">异步系统调用</h2>
+<p>当您正在运行的OS能够异步处理系统调用时，可以使用称为<a href="https://golang.org/src/runtime/netpoll.go">网络轮询器的</a>东西来更有效地处理系统调用。这是通过在各个操作系统中使用kqueue（MacOS），epoll（Linux）或iocp（Windows）来完成的。</p>
+<p>我们今天使用的许多操作系统都可以异步处理基于网络的系统调用。这是网络轮询器名字的出处，这是因为它的主要用途是处理网络操作。通过使用网络轮询器进行网络系统调用，调度器可以防止Goroutine在进行这些系统调用时阻止M。这有助于使M保持可用以执行P的LRQ中的其他Goroutine，而无需创建新的M。这有助于减少OS上的调度负载。</p>
+<p>看看它是如何工作的最好方法是看一个例子。</p>
+<p><strong>图3</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure3.png" />   
+    </p>
+<p>图3显示了我们的基本调度图。Goroutine-1正在M上执行，还有3个Goroutine在LRQ中等待以获取其在M上的时间。网络轮询器闲置无事可做。</p>
+<p><strong>图4</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure4.png" />   
+    </p>
+<p>在图4中，Goroutine-1希望进行网络系统调用，因此Goroutine-1被移至网络轮询器，并处理了异步网络系统调用。将Goroutine-1移至网络轮询器后，M现在可用于执行与LRQ不同的Goroutine。在这种情况下，Goroutine-2进行了上下文切换到M上。</p>
+<p><strong>图5</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure5.png" />   
+    </p>
+<p>在图5中，网络轮询器完成了异步网络系统调用，并将Goroutine-1移回到P的LRQ中。一旦Goroutine-1可以在M上上下文切换回去，它负责的Go相关代码可以再次执行。这里最大的好处是，执行网络系统调用不需要额外的M。网络轮询器具有OS线程，并且正在处理有效的事件循环。</p>
+<h2 id="同步系统调用">同步系统调用</h2>
+<p>当Goroutine想要进行无法异步完成的系统调用时，会发生什么？在这种情况下，将无法使用网络轮询器，并且进行系统调用的Goroutine将会阻止M。这很不幸，但是无法防止这种情况的发生。不能异步进行的系统调用的一个示例是基于文件的系统调用。如果使用的是CGO，则是调用C函数也会阻塞M的另一个情况。</p>
+<p><em>注意：Windows OS确实具有异步进行基于文件的系统调用的功能。从技术上讲，在Windows上运行时，可以使用网络轮询器。</em></p>
+<p>让我们逐一介绍同步系统调用（如文件I / O）会导致M阻塞的情况。</p>
+<p><strong>图6</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure6.png" />   
+    </p>
+<p>图6再次显示了我们的基本调度图，但是这次Goroutine-1将进行将阻塞M1的同步系统调用。</p>
+<p><strong>图7</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure7.png" />   
+    </p>
+<p>在图7中，调度器能够识别Goroutine-1导致M阻塞。此时，调度器将M1与P分离，而阻塞Goroutine-1仍处于连接状态。然后，调度器会引入一个新的M2来为P服务。此时，可以从LRQ中选择Goroutine-2，并在M2上进行上下文切换。如果由于先前的交换而已存在M，则此过渡比必须创建新的M更快。</p>
+<p><strong>图8</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure8.png" />   
+    </p>
+<p>在图8中，由Goroutine-1进行的阻塞系统调用完成了。此时，Goroutine-1可以移回LRQ并再次由P服务。如果这种情况需要再次发生，则将M1放在一边以备将来使用。</p>
+<h2 id="工作偷窃">工作偷窃</h2>
+<p>调度器的另一个方面是它是一种窃取工作的调度器。这有助于在某些方面保持调度效率。首先，您想要的最后一个就是M进入等待状态，因为一旦发生这种情况，操作系统将上下文M切换出内核。这意味着，即使有一个Goroutine处于可运行状态，P也无法完成任何工作，直到在M上下文中将M切换回M为止。窃取工作还有助于在所有P上平衡Goroutine，从而更好地分配工作并更高效地完成工作。</p>
+<p>让我们来看一个例子。</p>
+<p><strong>图9</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure9.png" />   
+    </p>
+<p>在图9中，我们有一个多线程Go程序，其中有两个P，分别为四个Goroutine和GRQ中的一个Goroutine提供服务。如果P的服务之一迅速为其所有Goroutine提供服务，会发生什么情况？</p>
+<p><strong>图10</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure10.png" />   
+    </p>
+<p>在图10中，P1没有更多的Goroutines要执行。但是在P2的LRQ和GRQ中都有可运行状态的Goroutine。这是P1需要窃取工作的时刻。<a href="https://golang.org/src/runtime/proc.go">窃取工作</a>的规则如下。</p>
+<p><strong>清单2</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">runtime.<span style="color:#900;font-weight:bold">schedule</span>() {
+    <span style="color:#998;font-style:italic">// only 1/61 of the time, check the global runnable queue for a G.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">// if not found, check the local queue.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">// if not found,
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">//     try to steal from other Ps.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">//     if not, check the global runnable queue.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">//     if not found, poll network.
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><p>因此，根据清单2中的这些规则，P1需要在其LRQ中检查P2中的Goroutines，并取其发现结果的一半。</p>
+<p><strong>图11</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure11.png" />   
+    </p>
+<p>在图11中，一半的Goroutine取自P2，现在P1可以执行这些Goroutine。</p>
+<p>如果P2完成其所有Goroutine的服务并且P1的LRQ中没有剩余，该怎么办？</p>
+<p><strong>图12</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure12.png" />   
+    </p>
+<p>在图12中，P2完成了所有工作，现在需要窃取一些东西。首先，它将查看P1的LRQ，但找不到任何Goroutine。接下来，将查看GRQ。在那里它将找到Goroutine-9。</p>
+<p><strong>图13</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure13.png" />   
+    </p>
+<p>在图13中，P2从GRQ窃取了Goroutine-9，并开始执行工作。所有这些偷窃工作的最大好处是，它可以让 M 保持忙碌而不会闲着。在内部，这种窃取工作被认为是在旋转M。这种旋转还有其他好处，JBD在其<a href="https://rakyll.org/scheduler/">窃取工作</a>的博客文章中很好地解释了这一点。</p>
+<h2 id="实际例子">实际例子</h2>
+<p>通过适当的机制和语义，我想向您展示如何将所有这些结合在一起以使Go计划程序随着时间的推移执行更多的工作。想象一下用C编写的多线程应用程序，其中程序正在管理两个OS线程，它们相互之间来回传递消息。</p>
+<p><strong>图14</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure14.png" />   
+    </p>
+<p>在图14中，有2个线程来回传递消息。线程1在Core 1上进行了上下文切换，并且现在正在执行，这允许线程1将其消息发送到线程2。</p>
+<p><em>注意：如何传递消息并不重要。重要的是随着编排的进行，线程的状态。</em></p>
+<p><strong>图15</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure15.png" />   
+    </p>
+<p>在图15中，线程1完成发送消息后，现在需要等待响应。这将导致线程1被上下文从Core 1切换到另一状态，并进入等待状态。线程2收到有关该消息的通知后，便进入可运行状态。现在，操作系统可以执行上下文切换，并使线程2在恰好是内核2的Core上执行。接下来，线程2处理该消息并将新消息发送回Thread 1。</p>
+<p><strong>图16</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure16.png" />   
+    </p>
+<p>在图16中，线程1再次接收到线程2发出的消息后，线程又进行了上下文切换，现在线程2的上下文从执行状态切换到了等待状态，线程1的上下文从等待状态切换到了可运行状态。最终返回到执行状态，这使其可以进行处理并将新消息发送回去。</p>
+<p>所有这些上下文切换和状态更改都需要执行时间，这限制了工作可以完成的速度。每个上下文切换潜在的潜在延迟约为1000纳秒，并且希望硬件每纳秒执行12条指令，因此您正在查看的是大约12k条指令，或多或少地不在这些上下文切换期间执行。由于这些线程也在不同的内核之间反弹，因此由于高速缓存行未命中而导致额外延迟的机会也很高。</p>
+<p>让我们以相同的示例为例，但是使用Goroutines和Go调度器。</p>
+<p><strong>图17</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure17.png" />   
+    </p>
+<p>在图17中，有两个相互协调的Goroutine来回传递消息。G1在M1上进行了上下文切换，而M1恰好在Core 1上运行，这使G1可以执行其工作。G1的工作是将其消息发送到G2。</p>
+<p><strong>图18</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure18.png" />   
+    </p>
+<p>在图18中，G1完成发送消息后，现在需要等待响应。这将导致G1被上下文切换出M1，并进入等待状态。一旦G2收到有关该消息的通知，它将进入可运行状态。现在，Go调度器可以执行上下文切换，并使G2在内核1上运行的M1上执行。接下来，G2处理该消息并将新消息发送回G1。</p>
+<p><strong>图19</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/94_figure19.png" />   
+    </p>
+<p>在图19中，当G2发送的消息被G1接收时，事物再次上下文切换。现在，G2上下文从执行状态切换到等待状态，G1上下文从等待状态切换到可运行状态，最后回到执行状态，这使它可以处理并发送新消息。</p>
+<p>表面上的东西似乎没有什么不同。无论使用线程还是Goroutine，都会发生所有相同的上下文切换和状态更改。但是，使用线程和Goroutines之间的主要区别乍一看可能并不明显。</p>
+<p>在使用Goroutines的情况下，所有处理都使用相同的OS Thread和Core。从操作系统的角度来看，这意味着操作系统线程永远不会进入等待状态。不止一次。结果，在使用线程时我们丢失给上下文切换的所有这些指令在使用Goroutines时不会丢失。</p>
+<p>从本质上讲，Go在OS级别将IO /阻塞工作变成了CPU密集型工作。由于所有上下文切换都是在应用程序级别进行的，因此每个上下文切换不会损失与使用线程时相同的（平均）约12k指令。在Go中，这些相同的上下文切换使您花费约200纳秒或约2.4k的指令。调度器还有助于提高缓存行效率和<a href="http://frankdenneman.nl/2016/07/07/numa-deep-dive-part-1-uma-numa">NUMA</a>。这就是为什么我们不需要的线程多于虚拟内核。在Go中，随着时间的推移，有可能完成更多的工作，因为Go调度器尝试使用更少的线程，并在每个线程上执行更多操作，这有助于减少OS和硬件上的负载。</p>
+<h3 id="结论">结论</h3>
+<p>Go调度器在设计如何考虑到OS和硬件如何工作的复杂性方面确实非常了不起。在操作系统级别上，将IO /阻塞工作转变为CPU密集型工作的能力是我们在随着时间的推移利用更多CPU容量方面获得的巨大胜利。这就是为什么您不需要比拥有的虚拟内核更多的OS线程。您可以合理地期望通过每个虚拟内核只有一个OS线程来完成所有工作（CPU密集型和IO 密集型）。对于网络应用程序和其他不需要阻止操作系统线程的系统调用的应用程序而言，这样做是可能的。</p>
+<p>作为开发人员，您仍然需要根据您正在处理的工作类型来了解您的应用程序在做什么。您无法创建无限数量的Goroutine，并期望获得惊人的性能。少即是多，但有了这些Go-Scheduler语义的理解，您就可以做出更好的工程决策。在下一篇文章中，我将探讨以保守的方式利用并发以获得更好的性能，同时仍然平衡可能需要添加到代码中的复杂性的想法。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/Scheduling-In-Go-1-OS-Scheduler/">Go调度：第一部分-操作系统调度</a></li>
+        
+        <li><a href="/post/bad-go-of-return-pointer/">Go返回指针的坏处</a></li>
+        
+        <li><a href="/post/grep-search-for-strings/">Grep Search for Strings</a></li>
+        
+        <li><a href="/post/visualizing-memory-management-in-golang/">Golang的可视化内存管理</a></li>
+        
+        <li><a href="/post/47-advanced-tutorials-for-mastering-k8s/">掌握k8s的47个高级教程</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/%E8%B0%83%E5%BA%A6'>调度</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go调度：第一部分-操作系统调度">Go调度：第一部分-操作系统调度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/grep-search-for-strings/" title="Grep Search for Strings">Grep Search for Strings</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/visualizing-memory-management-in-golang/" title="Golang的可视化内存管理">Golang的可视化内存管理</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/47-advanced-tutorials-for-mastering-k8s/" title="掌握k8s的47个高级教程">掌握k8s的47个高级教程</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/understanding-mysql-access-denied-error-inout-docker/" title="了解Docker容器内外的MySQL拒绝服务错误">了解Docker容器内外的MySQL拒绝服务错误</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (5)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="http://yuedu.baidu.com/ebook/14a722970740be1e640e9a3e" title="Android Gradle权威指南">Android Gradle权威指南</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
