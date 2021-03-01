@@ -147,13 +147,10 @@
     <li><a href="#介绍">介绍</a></li>
     <li><a href="#什么是并发">什么是并发</a></li>
     <li><a href="#工作负载">工作负载</a></li>
-    <li><a href="#增加数字">增加数字</a></li>
+    <li><a href="#数字累加">数字累加</a></li>
     <li><a href="#排序">排序</a></li>
-    <li><a href="#读取文件">读取文件</a>
-      <ul>
-        <li><a href="#结论">结论</a></li>
-      </ul>
-    </li>
+    <li><a href="#读取文件">读取文件</a></li>
+    <li><a href="#结论">结论</a></li>
   </ul>
 </nav>
     </div>
@@ -214,7 +211,8 @@
         </div>
         
         <div class="post-content">
-            <h2 id="序幕">序幕</h2>
+            <p>[译] <a href="https://www.ardanlabs.com/blog/2018/12/scheduling-in-go-part3.html">Scheduling In Go : Part III - Concurrency</a></p>
+<h2 id="序幕">序幕</h2>
 <p>这是分三部分的系列文章中的第三篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章专注于并发。</p>
 <p>三个部分系列的索引：</p>
 <ol>
@@ -249,7 +247,7 @@
 <p>使用IO密集型的工作负载，您无需并行即可使用并发。单个OS /硬件线程可以高效地处理多个Goroutine，因为Goroutine作为工作量的一部分自然会进入和退出等待状态。Goroutine的数量多于OS /硬件线程的数量，可以加快工作负载的执行速度，因为在操作系统线程上上下移动Goroutine的延迟成本不会产生“ Stop The World”事件。您的工作负载自然停止了，这允许不同的Goroutine有效利用相同的OS /硬件线程，而不是让OS /硬件线程闲置。</p>
 <p>您如何知道每个硬件线程有多少个Goroutine提供最佳吞吐量？Goroutine太少，您有更多的空闲时间。Goroutine太多，您有更多的上下文切换延迟时间。这是您可以考虑的内容，但超出了此特定文章的范围。</p>
 <p>现在，重要的是查看一些代码以巩固您的能力，以识别工作负荷何时可以利用并发，何时不能利用并发以及是否需要并行性。</p>
-<h2 id="增加数字">增加数字</h2>
+<h2 id="数字累加">数字累加</h2>
 <p>我们不需要复杂的代码来可视化和理解这些语义。查看以下命名<code>add</code>为整数集合的函数。</p>
 <p><strong>清单1</strong>
 <a href="https://play.golang.org/p/r9LdqUsEzEz">https://play.golang.org/p/r9LdqUsEzEz</a></p>
@@ -578,7 +576,7 @@ After:
   10 19 49 52 66 70 75 81 85 86 87 93
 </code></pre><p>由于冒泡排序的本质是要遍历整个列表，因此<code>bubbleSort</code>对第25行的调用将抵消使用并发的任何潜在收益。使用冒泡排序，使用并发不会提高性能。</p>
 <h2 id="读取文件">读取文件</h2>
-<p>已经介绍了两个CPU限制的工作负载，但是IO限制的工作负载怎么办？当Goroutines自然地进出等待状态时，语义是否有所不同？看一看IO-Bound工作负载，该工作负载读取文件并执行文本搜索。</p>
+<p>已经介绍了两个CPU限制的工作负载，但是IO限制的工作负载怎么办？当Goroutines自然地进出等待状态时，语义是否有所不同？看一看IO密集型的工作负载，该工作负载读取文件并执行文本搜索。</p>
 <p>此第一个版本是的函数的顺序版本<code>find</code>。</p>
 <p><strong>清单10</strong>
 <a href="https://play.golang.org/p/8gFe5F8zweN">https://play.golang.org/p/8gFe5F8zweN</a></p>
@@ -618,8 +616,8 @@ After:
 <span style="color:#099">56</span> }
 </code></pre></td></tr></table>
 </div>
-</div><p>在清单10中，您可以看到该<code>find</code>函数的顺序版本。在第43行，<code>found</code>声明了一个名为的变量，用于维护<code>topic</code>在给定文档中找到指定变量的次数。然后在第44行，遍历文档，并使用<code>read</code>函数在第45行读取每个文档。最后，在第49-53行，该包中的<code>Contains</code>函数<code>strings</code>用于检查是否可以在从文档读取的项目集合中找到该主题。如果找到该主题，则<code>found</code>变量加1。</p>
-<p>这是<code>read</code>所调用的函数的实现<code>find</code>。</p>
+</div><p>在清单10中，您可以看到该<code>find</code>函数的顺序版本。在第43行，声明了一个名为<code>found</code>的变量，用于维护在给定文档中找到指定变量 <code>top</code> 的次数。然后在第44行，遍历文档，并在第45行使用<code>read</code>函数读取每个文档。最后，在第49-53行，在<code>strings</code>包中的<code>Contains</code>函数用于检查是否可以在从文档读取的项目集合中找到该topic。如果找到该主题，则<code>found</code>变量加1。</p>
+<p>这是<code>find</code>函数调用<code>read</code>函数的实现。</p>
 <p><strong>清单11</strong>
 <a href="https://play.golang.org/p/8gFe5F8zweN">https://play.golang.org/p/8gFe5F8zweN</a></p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
@@ -644,9 +642,9 @@ After:
 <span style="color:#099">40</span> }
 </code></pre></td></tr></table>
 </div>
-</div><p><code>read</code>清单11中的函数<code>time.Sleep</code>以一毫秒的调用开始。如果我们执行实际的系统调用以从磁盘读取文档，则此调用用于模拟可能产生的延迟。此延迟的一致性对于准确测量顺序版本<code>find</code>对并发版本的性能很重要。然后在第35-39行，将存储在全局变量中的模拟xml文档<code>file</code>解编为结构值以进行处理。最后，第39行将一组项目返回给调用方。</p>
+</div><p>清单11中的<code>read</code>函数以调用休眠一毫秒的<code>time.Sleep</code>调用开始。如果我们执行实际的系统调用以从磁盘读取文档，则此调用用于模拟可能产生的延迟。此延迟的一致性对于准确测量顺序版本<code>find</code>对并发版本的性能很重要。然后在第35-39行，将存储在全局变量 <code>file</code> 中的模拟xml文档解编为结构体的值以进行处理。最后，第39行将一组项目返回给调用方。</p>
 <p>有了顺序版本后，这里是并发版本。</p>
-<p><em>注意：在编写并发版本的find时，可以采用几种方法和选项。现在不要挂在我的特定实现上。如果您有一个可读性更高的版本，其性能相同或更好，我希望与您分享。</em></p>
+<p><em>注意：在编写并发版本的 <code>find</code> 时，可以采用几种方法和选项。现在不要挂在我的特定实现上。如果您有一个可读性更高的版本，其性能相同或更好，我希望与您分享。</em></p>
 <p><strong>清单12</strong>
 <a href="https://play.golang.org/p/8gFe5F8zweN">https://play.golang.org/p/8gFe5F8zweN</a></p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
@@ -728,11 +726,11 @@ After:
 </div><p>在清单12中，展示了该<code>findConcurrent</code>函数，它是该<code>find</code>函数的并发版本。并发版本使用30行代码，而非并发版本则使用13行代码。我实现并发版本的目标是控制用于处理未知数量文档的Goroutine的数量。我选择了一种使用通道来填充Goroutines池的池化模式。</p>
 <p>有很多代码，所以我只强调要理解的重要内容。</p>
 <p>**第61-64行：**创建了一个通道，并填充了所有要处理的文档。</p>
-<p>**65行：**通道已关闭，因此在处理所有文档时，Goroutine池自然终止。</p>
+<p>**65行：**通道已关闭，因此在所有文档都被处理时，Goroutine池自然终止。</p>
 <p>**第70行：**创建了Goroutines池。</p>
-<p>**73-83行：**池中的每个Goroutine都从通道接收一个文档，将该文档读入内存并检查该主题的内容。匹配时，本地找到的变量增加。</p>
+<p>**73-83行：**池中的每个Goroutine都从通道接收一个文档，将该文档读入内存并检查内容搜索 topic。匹配时，本地的 <code>found</code> 的变量增加。</p>
 <p>**第84行：**各个Goroutine计数的总和加在一起成为最终计数。</p>
-<p>并发版本肯定比顺序版本更复杂，但是值得吗？再次回答这个问题的最好方法是创建一个基准。对于这些基准，我使用了关闭垃圾收集器的一千个文档的集合。有使用该<code>find</code>功能的顺序版本和使用该功能的并发版本<code>findConcurrent</code>。</p>
+<p>并发版本肯定比顺序版本更复杂，但是值得吗？再次回答这个问题的最好方法是创建一个基准。对于这些基准，我使用了一千个文档的集合，并且关闭了垃圾收集器。使用该<code>find</code>功能的顺序版本和使用该功能的并发版本<code>findConcurrent</code>。</p>
 <p><strong>清单13</strong></p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
 <table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -762,7 +760,7 @@ After:
 }
 </code></pre></td></tr></table>
 </div>
-</div><p>清单13显示了基准功能。这是所有Goroutines仅具有一个OS /硬件线程时的结果。顺序<code>runtime.NumCPU</code>在我的机器上使用1个Goroutine，并发版本在使用或8个Goroutine。在这种情况下，并发版本利用并发而没有并行性。</p>
+</div><p>清单13显示了基准函数。这是所有Goroutines仅具有一个OS /硬件线程时的结果。顺序版本使用了1个Goroutine，并发版本使用<code>runtime.NumCPU</code>或8个Goroutine。在这种情况下，并发版本利用并发而没有并行性。</p>
 <p><strong>清单14</strong></p>
 <pre><code>10 Thousand Documents using 8 goroutines with 1 core
 2.9 GHz Intel 4 Core i7
@@ -792,9 +790,9 @@ BenchmarkConcurrent-8        	      20	 187382200 ns/op : ~88% Faster
 BenchmarkSequentialAgain-8   	       3	1416126029 ns/op
 BenchmarkConcurrentAgain-8   	      20	 185965460 ns/op : ~87% Faster
 </code></pre><p>清单15中的基准测试表明，引入额外的OS /硬件线程不会提供任何更好的性能。</p>
-<h3 id="结论">结论</h3>
+<h2 id="结论">结论</h2>
 <p>这篇文章的目的是提供有关必须考虑的语义的指导，以确定工作负载是否适合使用并发。我试图提供不同类型的算法和工作负载的示例，以便您可以看到语义上的差异以及需要考虑的不同工程决策。</p>
-<p>您可以清楚地看到，对于IO-Bound工作负载，不需要并行处理就可以大大提高性能。这与您看到的CPU绑定工作相反。当涉及像冒泡排序这样的算法时，并发的使用会增加复杂性，而没有任何真正的性能优势。确定您的工作负载是否适合并发，然后确定必须使用正确的语义的工作负载类型非常重要。</p>
+<p>您可以清楚地看到，对于IO密集的工作负载，不需要并行处理就可以大大提高性能。这与您看到的CPU密集的工作相反。当涉及像冒泡排序这样的算法时，并发的使用会增加复杂性，而没有任何真正的性能优势。确定您的工作负载是否适合并发，然后确定必须使用正确的语义的工作负载类型非常重要。</p>
 
         </div>
 
@@ -809,7 +807,7 @@ BenchmarkConcurrentAgain-8   	      20	 185965460 ns/op : ~87% Faster
         
         <li><a href="/post/Scheduling-In-Go-2-GO-Scheduler/">Go的调度：第二部分 - Go调度器</a></li>
         
-        <li><a href="/post/Scheduling-In-Go-1-OS-Scheduler/">Go调度：第一部分-操作系统调度</a></li>
+        <li><a href="/post/Scheduling-In-Go-1-OS-Scheduler/">Go的调度：第一部分-操作系统调度</a></li>
         
         <li><a href="/post/bad-go-of-return-pointer/">Go返回指针的坏处</a></li>
         
@@ -938,6 +936,10 @@ if (!doNotTrack) {
 <ul class="widget-list">
     
     <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+    <li>
         <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
     </li>
     
@@ -946,7 +948,7 @@ if (!doNotTrack) {
     </li>
     
     <li>
-        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go调度：第一部分-操作系统调度">Go调度：第一部分-操作系统调度</a>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go的调度：第一部分-操作系统调度">Go的调度：第一部分-操作系统调度</a>
     </li>
     
     <li>
@@ -973,10 +975,6 @@ if (!doNotTrack) {
         <a href="https://cyberwave.github.io/post/json-ld-building-meaningful-data-apis/" title="使用Json Ld构建有意义的数据API">使用Json Ld构建有意义的数据API</a>
     </li>
     
-    <li>
-        <a href="https://cyberwave.github.io/post/use-hugo-and-github-make-blog/" title="使用Hugo和GitHub搭建博客">使用Hugo和GitHub搭建博客</a>
-    </li>
-    
 </ul>
     </section>
 
@@ -988,7 +986,7 @@ if (!doNotTrack) {
     
     <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
     
-    <li><a href="https://cyberwave.github.io/categories/golang/">golang (5)</a></li>
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (6)</a></li>
     
     <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
     
@@ -1018,6 +1016,8 @@ if (!doNotTrack) {
     <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
     
     <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
     
     <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
     

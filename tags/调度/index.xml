@@ -13,7 +13,7 @@
       <pubDate>Fri, 26 Feb 2021 17:38:44 +0800</pubDate>
       
       <guid>https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/</guid>
-      <description>序幕 这是分三部分的系列文章中的第三篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章专注于并发。 三个部分系列的索引： Go中的调度：第一</description>
+      <description>[译] Scheduling In Go : Part III - Concurrency 序幕 这是分三部分的系列文章中的第三篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章专注于并发。 三个部分系列的索</description>
     </item>
     
     <item>
@@ -22,11 +22,11 @@
       <pubDate>Fri, 26 Feb 2021 14:15:42 +0800</pubDate>
       
       <guid>https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/</guid>
-      <description>序幕 这是一个由三部分组成的系列文章中的第二篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章重点介绍Go调度器。 三个部分系列的索引： G</description>
+      <description>[译] Scheduling In Go : Part II - Go Scheduler 序幕 这是一个由三部分组成的系列文章中的第二篇，它将提供对Go调度器背后的机制和语义的理解。这篇文章重点介绍Go调度器</description>
     </item>
     
     <item>
-      <title>Go调度：第一部分-操作系统调度</title>
+      <title>Go的调度：第一部分-操作系统调度</title>
       <link>https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/</link>
       <pubDate>Fri, 26 Feb 2021 11:54:40 +0800</pubDate>
       

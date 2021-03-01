@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>scheduler on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/scheduler/</link>
+    <description>Recent content in scheduler on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Mon, 01 Mar 2021 15:47:43 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/scheduler/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Go语言调度器的工作窃取</title>
+      <link>https://cyberwave.github.io/post/Go-work-stealing-scheduler/</link>
+      <pubDate>Mon, 01 Mar 2021 15:47:43 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/Go-work-stealing-scheduler/</guid>
+      <description>[译] Go&amp;rsquo;s work-stealing scheduler Go调度器的工作是在一个或多个处理器上运行的多个工作者OS线程上分发可运行的goroutine。在多线程计算中，调度中出现了两种</description>
+    </item>
+    
+  </channel>
+</rss>

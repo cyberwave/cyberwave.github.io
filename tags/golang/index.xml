@@ -6,7 +6,16 @@
     <description>Recent content in golang on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 04 Feb 2021 13:50:07 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 01 Mar 2021 15:47:43 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Go语言调度器的工作窃取</title>
+      <link>https://cyberwave.github.io/post/Go-work-stealing-scheduler/</link>
+      <pubDate>Mon, 01 Mar 2021 15:47:43 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/Go-work-stealing-scheduler/</guid>
+      <description>[译] Go&amp;rsquo;s work-stealing scheduler Go调度器的工作是在一个或多个处理器上运行的多个工作者OS线程上分发可运行的goroutine。在多线程计算中，调度中出现了两种</description>
+    </item>
+    
     <item>
       <title>Golang的可视化内存管理</title>
       <link>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</link>

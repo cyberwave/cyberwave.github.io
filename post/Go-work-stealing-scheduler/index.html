@@ -9,16 +9,20 @@
     <meta name="referrer" content="no-referrer-when-downgrade">
     
 
-    <title>工具 | 听雪者的博客</title>
-    <meta property="og:title" content="工具 - 听雪者的博客">
+    <title>Go语言调度器的工作窃取 | 听雪者的博客</title>
+    <meta property="og:title" content="Go语言调度器的工作窃取 - 听雪者的博客">
     <meta property="og:type" content="article">
         
+    <meta property="article:published_time" content='2021-03-01T15:47:43&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-03-01T15:47:43&#43;08:00'>
         
     <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
-    <meta name="description" content="暂无工具">
+    <meta name="description" content="Go语言调度器的工作窃取">
         
     <meta name="author" content="听雪者">
-    <meta property="og:url" content="https://cyberwave.github.io/tools/">
+    <meta property="og:url" content="https://cyberwave.github.io/post/Go-work-stealing-scheduler/">
     <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
 
     <link rel="stylesheet" href='/css/normalize.css'>
@@ -52,9 +56,9 @@
             </div>
             <div>
                 <nav id="nav-menu" class="clearfix">
-                    <a class="" href="https://cyberwave.github.io">首页</a>
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
                     
-                    <a class="current" href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
                     
                     <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
                     
@@ -137,7 +141,18 @@
 <div class="post-toc" style="position: absolute; top: 188px;">
     <h2 class="post-toc-title">文章目录</h2>
     <div class="post-toc-content">
-        <nav id="TableOfContents"></nav>
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#调度基础">调度基础</a></li>
+    <li><a href="#偷窃">偷窃</a></li>
+    <li><a href="#自旋线程">自旋线程</a></li>
+    <li><a href="#结论">结论</a>
+      <ul>
+        <li><a href="#参考">参考</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
     </div>
 </div>
 <script type="text/javascript">
@@ -169,11 +184,18 @@
 </script>
     <article class="post">
         <header>
-            <h1 class="post-title">工具</h1>
+            <h1 class="post-title">Go语言调度器的工作窃取</h1>
         </header>
         <date class="post-meta meta-date">
-            1年1月1日
+            2021年3月1日
         </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
         
         
         <div class="post-meta">
@@ -182,8 +204,84 @@
         </div>
         
         
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
         <div class="post-content">
-            
+            <p>[译] <a href="https://rakyll.org/scheduler/">Go&rsquo;s work-stealing scheduler</a></p>
+<p>Go调度器的工作是在一个或多个处理器上运行的多个工作者OS线程上分发可运行的goroutine。在多线程计算中，调度中出现了两种范例：工作共享和工作窃取。</p>
+<ul>
+<li><strong>工作共享</strong>：当处理器生成新线程时，它会尝试将其中的一些线程迁移到其他处理器，希望它们被闲置/未充分利用的处理器利用。</li>
+<li><strong>工作窃取</strong>：未充分利用的处理器会主动寻找其他处理器的线程并“窃取”一些。</li>
+</ul>
+<p>线程迁移在工作窃取中发生的频率比在工作共享中发生的频率低。当所有处理器都能运行时，不会迁移任何线程。并且，一旦有一个空闲的处理器，便考虑迁移。</p>
+<p>Go从1.1开始，便有一个工作窃取调度器，由Dmitry Vyukov贡献。本文将深入解释什么是窃取工作调度器以及Go如何实现它。</p>
+<h2 id="调度基础">调度基础</h2>
+<p>Go有一个M：N调度器，该调度器也可以利用多个处理器。任何时候，M个 goroutines 需要在N个OS线程上被调度，这些OS线程最多有 <code>GOMAXPROCS</code> 个处理器。Go调度器对goroutine，线程和处理器，有以下术语：</p>
+<ul>
+<li>G：goroutine</li>
+<li>M：操作系统线程（机器）</li>
+<li>P：处理器</li>
+</ul>
+<p>有一个特定于P的本地和全局goroutine队列。每个M应该分配给一个P。如果发生阻塞或系统调用，P可能没有M。在任何时候，最多有GOMAXPROCS个P。在任何时候，每个P只能运行一个M。如果需要，调度器可以创建更多M。</p>
+<p>
+        <img class="mx-auto" alt="调度器基础" src="https://rakyll.org/img/scheduler-concepts.png" />   
+    </p>
+<p>每一轮调度都只是简单地找到一个可运行的goroutine并执行它。在每一轮调度中，搜索均按以下顺序进行：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">runtime.<span style="color:#900;font-weight:bold">schedule</span>() {
+    <span style="color:#998;font-style:italic">// only 1/61 of the time, check the global runnable queue for a G.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">// if not found, check the local queue.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">// if not found,
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">//     try to steal from other Ps.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">//     if not, check the global runnable queue.
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#998;font-style:italic">//     if not found, poll network.
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><p>一旦找到可运行的G，它将一直执行到被阻塞。</p>
+<p>注意：看起来全局队列比本地队列有一个优势，但是每隔一段时间检查一次全局队列，对于避免M仅从本地队列进行调度直到没有本地排队的goroutine至关重要(防止M只调度本地排队的goroutine，直到本地队列没有要运行的goroutine，应该是为了防止有goroutine长时间等待而饿死)。</p>
+<h2 id="偷窃">偷窃</h2>
+<p>当新的G被创建或已经存在的G成为可运行时，它将被推送到当前P的可运行goroutine列表中。当P完成执行G时，它将尝试从自己的可运行goroutine列表中弹出一个G。如果列表现在为空，则P选择一个随机的其他处理器（P）并尝试从其队列中窃取一半可运行的goroutine。</p>
+<p>
+        <img class="mx-auto" alt="P2抢断P1" src="https://rakyll.org/img/scheduler-stealing.png" />   
+    </p>
+<p>在上述情况下，P2无法找到任何可运行的goroutine。因此，它随机选择另一个处理器（P1）并将窃取三个goroutine到其自己的本地队列中。P2将能够运行这些goroutine，并且调度器的工作将更加公平地分布在多个处理器之间。</p>
+<h2 id="自旋线程">自旋线程</h2>
+<p>调度器始终希望向Ms分发尽可能多的可运行goroutine，以利用处理器，但与此同时，我们需要停止过多的工作以节省CPU和功耗。与此相反，调度器还应该能够扩展到高吞吐量和CPU密集型程序。</p>
+<p>如果性能至关重要，则持续抢占不但昂贵，对高吞吐量程序的来说又是问题。OS线程不应经常在彼此之间切换可运行的goroutine，因为这会导致延迟增加。除了存在系统调用外，还需要不断阻塞和解除阻塞OS线程。这是昂贵的，并且增加了很多开销。</p>
+<p>为了最大程度地减少交接，Go调度器实现了“旋转线程”。旋转线程会消耗一点额外的CPU能力，但会最大程度地减少操作系统线程的抢占。如果发生以下情况，则线程正在旋转：</p>
+<ul>
+<li>分配了P的M正在寻找可运行的goroutine。</li>
+<li>没有分配P的M正在寻找可用的P。</li>
+<li>如果有一个空闲的P并且没有其他自旋线程，则Scheduler还会在准备goroutine时释放一个附加线程并对其进行旋转。</li>
+</ul>
+<p>随时有最多GOMAXPROCS个自旋的 M。当自旋的线程找到工作时，它将退出旋转状态。</p>
+<p>如果存在未分配P的空闲M，则分配P的空闲线程不会阻塞。当创建新的goroutine或阻塞一个M时，调度器将确保至少有一个旋转的M。并避免过多的M阻止/取消阻止。</p>
+<h2 id="结论">结论</h2>
+<p>Go调度器通过偷窃将它们调度到正确的处理器和未充分利用的处理器上，以及实现“旋转”线程来避免发生过多的阻塞/未阻塞转换，从而避免了OS线程的过多抢占。</p>
+<p>调度事件可以由<a href="https://golang.org/cmd/trace/">执行跟踪器跟踪</a>。如果您碰巧认为自己的处理器利用率很低，则可以调查正在发生的情况。</p>
+<h3 id="参考">参考</h3>
+<ul>
+<li><a href="https://github.com/golang/go/blob/master/src/runtime/proc.go">Go运行时调度器源</a></li>
+<li><a href="https://golang.org/s/go11sched">可扩展的Go Scheduler设计文档</a></li>
+<li><a href="https://morsmachine.dk/go-scheduler">Daniel Morsing的Go调度器</a></li>
+</ul>
+
         </div>
 
         
@@ -195,7 +293,7 @@
     <h2>See Also</h2>
     <ul class="listing">
         
-        <li><a href="/post/Go-work-stealing-scheduler/">Go语言调度器的工作窃取</a></li>
+        <li><a href="/post/visualizing-memory-management-in-golang/">Golang的可视化内存管理</a></li>
         
         <li><a href="/post/Scheduling-In-Go-3-Concurrency/">Go的调度：第三部分 - 并发</a></li>
         
@@ -211,7 +309,13 @@
 
         <div class="post-meta meta-tags">
             
-            没有标签
+            <ul class="clearfix">
+                
+                <li><a href='/tags/golang'>golang</a></li>
+                
+                <li><a href='/tags/scheduler'>scheduler</a></li>
+                
+            </ul>
             
         </div>
     </article>
