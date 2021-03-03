@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>内存管理 on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/</link>
+    <description>Recent content in 内存管理 on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Thu, 04 Feb 2021 13:50:07 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Golang的可视化内存管理</title>
+      <link>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</link>
+      <pubDate>Thu, 04 Feb 2021 13:50:07 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/visualizing-memory-management-in-golang/</guid>
+      <description>原文：🚀 Visualizing memory management in Golang 在本章中， 我们将研究 Go 编程语言（golang）的内存管理。Go 是一种静态类型化和编译的语言，和 C/C++ 和 Rust一样。因此，Go</description>
+    </item>
+    
+  </channel>
+</rss>
