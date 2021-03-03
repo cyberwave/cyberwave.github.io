@@ -6,7 +6,16 @@
     <description>Recent content in Tags on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Mon, 01 Mar 2021 15:47:43 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 03 Mar 2021 13:36:02 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>auth</title>
+      <link>https://cyberwave.github.io/tags/auth/</link>
+      <pubDate>Wed, 03 Mar 2021 13:36:02 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/tags/auth/</guid>
+      <description></description>
+    </item>
+    
     <item>
       <title>scheduler</title>
       <link>https://cyberwave.github.io/tags/scheduler/</link>
