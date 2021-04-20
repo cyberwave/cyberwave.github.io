@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>data on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/data/</link>
+    <description>Recent content in data on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Tue, 20 Apr 2021 10:33:39 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/data/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>数据和语义的设计哲学</title>
+      <link>https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/</link>
+      <pubDate>Tue, 20 Apr 2021 10:33:39 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/</guid>
+      <description>原文 Design Philosophy On Data And Semantics 楔子 这是一个由四部分组成的系列文章的终结篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解</description>
+    </item>
+    
+  </channel>
+</rss>

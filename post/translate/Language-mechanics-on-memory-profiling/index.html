@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>内存剖析的语言机制 | 听雪者的博客</title>
+    <meta property="og:title" content="内存剖析的语言机制 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-04-19T17:06:13&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-04-19T17:06:13&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="内存剖析的语言机制">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#楔子">楔子</a></li>
+    <li><a href="#介绍">介绍</a></li>
+    <li><a href="#程序">程序</a></li>
+    <li><a href="#基准测试">基准测试</a></li>
+    <li><a href="#profiling">Profiling</a></li>
+    <li><a href="#编译器报告">编译器报告</a></li>
+    <li><a href="#interfaces">Interfaces</a></li>
+    <li><a href="#栈帧stack-frames">栈帧(Stack Frames)</a></li>
+    <li><a href="#分配和性能">分配和性能</a></li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">内存剖析的语言机制</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年4月19日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="楔子">楔子</h2>
+<p>这是一个由四部分组成的系列文章的第三篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解。这篇文章主要关注堆栈和指针。</p>
+<p>四部分系列文章索引：</p>
+<ol>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-stacks-and-pointers.html">Language Mechanics On Stacks And Pointers</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-escape-analysis.html">Language Mechanics On Escape Analysis</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/language-mechanics-on-memory-profiling.html">Language Mechanics On Memory Profiling</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/design-philosophy-on-data-and-semantics.html">Design Philosophy On Data And Semantics</a></li>
+</ol>
+<p>观看视频来看这个代码的生动的示例:</p>
+<p><a href="https://engineers.sg/video/go-concurrency-live-gophercon-sg-2017--1746">GopherCon Singapore (2017) - Escape Analysis</a></p>
+<h2 id="介绍">介绍</h2>
+<p>在前面的文章中，我使用在协程栈上共享值的示例来教学了基本的逃逸分析。我没有显示给您的是其他可能导致值逃逸的情况。为了帮助你解决此问题，我将调试一个以令人惊讶的方式分配的程序。</p>
+<h2 id="程序">程序</h2>
+<p>我想学习更多关于 <code>os</code> 包的信息，所以我给自己一个快速的项目。给定一个字节流，写一个函数来找到字符串 <code>elvis</code> 并使用大写字段版本的字符串 <code>Elvis</code> 替换掉它。我们讨论 King ，所以他人名字应该总是大写。</p>
+<p>这儿链接到这个问题：</p>
+<p><a href="https://play.golang.org/p/n_SzF4Cer4">https://play.golang.org/p/n_SzF4Cer4</a></p>
+<p>这儿链接到压测：</p>
+<p><a href="https://play.golang.org/p/TnXrxJVfLV">https://play.golang.org/p/TnXrxJVfLV</a></p>
+<p>代码列出两个不同的函数来解决这个问题。由于使用 <code>io</code>c包，因此本文将重点放在 <code>algOne</code> 函数上。 使用 <code>algTwo</code> 函数可以自己尝试使用内存和cpu配置文件。</p>
+<p>这儿是我们将要使用的输入数据，以及 <code>algOne</code> 预期产生的数据</p>
+<p><strong>Listing 1</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">Input:
+abcelvisaElvisabcelviseelvisaelvisaabeeeelvise l v i saa bb e l v i saa elvi
+selvielviselvielvielviselvi1elvielviselvis
+
+Output:
+abcElvisaElvisabcElviseElvisaElvisaabeeeElvise l v i saa bb e l v i saa elvi
+selviElviselvielviElviselvi1elviElvisElvis
+</code></pre></td></tr></table>
+</div>
+</div><p>这儿是 <code>algOne</code> 函数的完整列表</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"> <span style="color:#099">80</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">algOne</span>(data []<span style="color:#458;font-weight:bold">byte</span>, find []<span style="color:#458;font-weight:bold">byte</span>, repl []<span style="color:#458;font-weight:bold">byte</span>, output <span style="color:#000;font-weight:bold">*</span>bytes.Buffer) {
+ <span style="color:#099">81</span>
+ <span style="color:#099">82</span>     <span style="color:#998;font-style:italic">// Use a bytes Buffer to provide a stream to process.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">83</span>     input <span style="color:#000;font-weight:bold">:=</span> bytes.<span style="color:#900;font-weight:bold">NewBuffer</span>(data)
+ <span style="color:#099">84</span>
+ <span style="color:#099">85</span>     <span style="color:#998;font-style:italic">// The number of bytes we are looking for.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">86</span>     size <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(find)
+ <span style="color:#099">87</span>
+ <span style="color:#099">88</span>     <span style="color:#998;font-style:italic">// Declare the buffers we need to process the stream.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">89</span>     buf <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>([]<span style="color:#458;font-weight:bold">byte</span>, size)
+ <span style="color:#099">90</span>     end <span style="color:#000;font-weight:bold">:=</span> size <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>
+ <span style="color:#099">91</span>
+ <span style="color:#099">92</span>     <span style="color:#998;font-style:italic">// Read in an initial number of bytes we need to get started.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">93</span>     <span style="color:#000;font-weight:bold">if</span> n, err <span style="color:#000;font-weight:bold">:=</span> io.<span style="color:#900;font-weight:bold">ReadFull</span>(input, buf[:end]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+ <span style="color:#099">94</span>         output.<span style="color:#900;font-weight:bold">Write</span>(buf[:n])
+ <span style="color:#099">95</span>         <span style="color:#000;font-weight:bold">return</span>
+ <span style="color:#099">96</span>     }
+ <span style="color:#099">97</span>
+ <span style="color:#099">98</span>     <span style="color:#000;font-weight:bold">for</span> {
+ <span style="color:#099">99</span>
+<span style="color:#099">100</span>         <span style="color:#998;font-style:italic">// Read in one byte from the input stream.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">101</span>         <span style="color:#000;font-weight:bold">if</span> _, err <span style="color:#000;font-weight:bold">:=</span> io.<span style="color:#900;font-weight:bold">ReadFull</span>(input, buf[end:]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">102</span>
+<span style="color:#099">103</span>             <span style="color:#998;font-style:italic">// Flush the reset of the bytes we have.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">104</span>             output.<span style="color:#900;font-weight:bold">Write</span>(buf[:end])
+<span style="color:#099">105</span>             <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">106</span>         }
+<span style="color:#099">107</span>
+<span style="color:#099">108</span>         <span style="color:#998;font-style:italic">// If we have a match, replace the bytes.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">109</span>         <span style="color:#000;font-weight:bold">if</span> bytes.<span style="color:#900;font-weight:bold">Compare</span>(buf, find) <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span> {
+<span style="color:#099">110</span>             output.<span style="color:#900;font-weight:bold">Write</span>(repl)
+<span style="color:#099">111</span>
+<span style="color:#099">112</span>             <span style="color:#998;font-style:italic">// Read a new initial number of bytes.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">113</span>             <span style="color:#000;font-weight:bold">if</span> n, err <span style="color:#000;font-weight:bold">:=</span> io.<span style="color:#900;font-weight:bold">ReadFull</span>(input, buf[:end]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">114</span>                 output.<span style="color:#900;font-weight:bold">Write</span>(buf[:n])
+<span style="color:#099">115</span>                 <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">116</span>             }
+<span style="color:#099">117</span>
+<span style="color:#099">118</span>             <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">119</span>         }
+<span style="color:#099">120</span>
+<span style="color:#099">121</span>         <span style="color:#998;font-style:italic">// Write the front byte since it has been compared.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">122</span>         output.<span style="color:#900;font-weight:bold">WriteByte</span>(buf[<span style="color:#099">0</span>])
+<span style="color:#099">123</span>
+<span style="color:#099">124</span>         <span style="color:#998;font-style:italic">// Slice that front byte out.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">125</span>         <span style="color:#0086b3">copy</span>(buf, buf[<span style="color:#099">1</span>:])
+<span style="color:#099">126</span>     }
+<span style="color:#099">127</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>我想要知道的是这个函数的性能如何以及它对堆施加了什么样的压力。为了了解这些，我们需要运行基准测试。</p>
+<h2 id="基准测试">基准测试</h2>
+<p>这儿是我写的基准函数，它调用 <code>algOne</code> 函数来执行数据流处理。</p>
+<p><strong>Listing 3</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">15</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">BenchmarkAlgorithmOne</span>(b <span style="color:#000;font-weight:bold">*</span>testing.B) {
+<span style="color:#099">16</span>     <span style="color:#000;font-weight:bold">var</span> output bytes.Buffer
+<span style="color:#099">17</span>     in <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">assembleInputStream</span>()
+<span style="color:#099">18</span>     find <span style="color:#000;font-weight:bold">:=</span> []<span style="color:#0086b3">byte</span>(<span style="color:#d14">&#34;elvis&#34;</span>)
+<span style="color:#099">19</span>     repl <span style="color:#000;font-weight:bold">:=</span> []<span style="color:#0086b3">byte</span>(<span style="color:#d14">&#34;Elvis&#34;</span>)
+<span style="color:#099">20</span>
+<span style="color:#099">21</span>     b.<span style="color:#900;font-weight:bold">ResetTimer</span>()
+<span style="color:#099">22</span>
+<span style="color:#099">23</span>     <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; b.N; i<span style="color:#000;font-weight:bold">++</span> {
+<span style="color:#099">24</span>         output.<span style="color:#900;font-weight:bold">Reset</span>()
+<span style="color:#099">25</span>         <span style="color:#900;font-weight:bold">algOne</span>(in, find, repl, <span style="color:#000;font-weight:bold">&amp;</span>output)
+<span style="color:#099">26</span>     }
+<span style="color:#099">27</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>有了这个基准函数，我们可以通过 <code>go test</code> 使用 <code>-bench</code>、<code>-benchtime</code> 和 <code>-benchmem</code> 开关来运行它。</p>
+<p><strong>Listing 4</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go <span style="color:#0086b3">test</span> -run none -bench AlgorithmOne -benchtime 3s -benchmem
+BenchmarkAlgorithmOne-8    	<span style="color:#099">2000000</span> 	     <span style="color:#099">2522</span> ns/op       <span style="color:#099">117</span> B/op  	      <span style="color:#099">2</span> allocs/op
+</code></pre></td></tr></table>
+</div>
+</div><p>在运行基准后，我们可以看到，<code>algOne</code> 函数分配正在分配两上值，每个操作总计117个字节。 很好，但是我们需要知道函数中的哪些代码行导致了这些分配。 要了解这一点，我们需要为此基准生成概要分析数据。</p>
+<h2 id="profiling">Profiling</h2>
+<p>为了生成 profile 数据，我们需要再次运行基准，便是这个时候需要使用 <code>-memprofile</code> 开头获得内存profile</p>
+<p><strong>Listing 5</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go <span style="color:#0086b3">test</span> -run none -bench AlgorithmOne -benchtime 3s -benchmem -memprofile mem.out
+BenchmarkAlgorithmOne-8    	<span style="color:#099">2000000</span> 	     <span style="color:#099">2570</span> ns/op       <span style="color:#099">117</span> B/op  	      <span style="color:#099">2</span> allocs/op
+</code></pre></td></tr></table>
+</div>
+</div><p>当基准完成后，test工具生成两个新的文件。</p>
+<p><strong>Listing 6</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#a61717;background-color:#e3d2d2">~</span><span style="color:#000;font-weight:bold">/</span>code<span style="color:#000;font-weight:bold">/</span><span style="color:#000;font-weight:bold">go</span><span style="color:#000;font-weight:bold">/</span>src<span style="color:#000;font-weight:bold">/.../</span>memcpu
+<span style="color:#a61717;background-color:#e3d2d2">$</span> ls <span style="color:#000;font-weight:bold">-</span>l
+total <span style="color:#099">9248</span>
+<span style="color:#000;font-weight:bold">-</span>rw<span style="color:#000;font-weight:bold">-</span>r<span style="color:#000;font-weight:bold">--</span>r<span style="color:#000;font-weight:bold">--</span>  <span style="color:#099">1</span> bill  staff      <span style="color:#099">209</span> May <span style="color:#099">22</span> <span style="color:#099">18</span>:<span style="color:#099">11</span> mem.<span style="color:#900;font-weight:bold">out</span>       (NEW)
+<span style="color:#000;font-weight:bold">-</span>rwxr<span style="color:#000;font-weight:bold">-</span>xr<span style="color:#000;font-weight:bold">-</span>x  <span style="color:#099">1</span> bill  staff  <span style="color:#099">2847600</span> May <span style="color:#099">22</span> <span style="color:#099">18</span>:<span style="color:#099">10</span> memcpu.<span style="color:#900;font-weight:bold">test</span>   (NEW)
+<span style="color:#000;font-weight:bold">-</span>rw<span style="color:#000;font-weight:bold">-</span>r<span style="color:#000;font-weight:bold">--</span>r<span style="color:#000;font-weight:bold">--</span>  <span style="color:#099">1</span> bill  staff     <span style="color:#099">4761</span> May <span style="color:#099">22</span> <span style="color:#099">18</span>:<span style="color:#099">01</span> stream.<span style="color:#000;font-weight:bold">go</span>
+<span style="color:#000;font-weight:bold">-</span>rw<span style="color:#000;font-weight:bold">-</span>r<span style="color:#000;font-weight:bold">--</span>r<span style="color:#000;font-weight:bold">--</span>  <span style="color:#099">1</span> bill  staff      <span style="color:#099">880</span> May <span style="color:#099">22</span> <span style="color:#099">14</span>:<span style="color:#099">49</span> stream_test.<span style="color:#000;font-weight:bold">go</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>源代码位于名为 <code>memcpu</code> 的文件夹中，函数 <code>algOne</code> 位于 <code>stream.go</code> 中。基准函数位于 <code>stream_test.go</code>。两个生成的新的文件为 <code>mem.out</code> 和 <code>memcpu.test</code>。其中 <code>mem.out</code> 文件包含 profile 数据，而 <code>memcpu.test</code> 文件，（以文件夹命名）包含测试二进制文件，我们在查看配置文件数据时需要访问符号。</p>
+<p>使用该 profile 文件和测试二进制，我们可以运行 <code>pprof</code> 工具来研究 profile 数据。</p>
+<p><strong>Listing 7</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go tool pprof -alloc_space memcpu.test mem.out
+Entering interactive mode <span style="color:#000;font-weight:bold">(</span><span style="color:#0086b3">type</span> <span style="color:#d14">&#34;help&#34;</span> <span style="color:#000;font-weight:bold">for</span> commands<span style="color:#000;font-weight:bold">)</span>
+<span style="color:#000;font-weight:bold">(</span>pprof<span style="color:#000;font-weight:bold">)</span> _
+</code></pre></td></tr></table>
+</div>
+</div><p>当剖析内存并查找 ”low hanging fruit&quot;, 你可以使用 <code>-alloc_space</code> 选项替换默认的 <code>-inuse_space</code> 选项。这将显示您进行配置文件时，无论分配是否仍在内存中，每项分配的发生位置。</p>
+<p>从 <code>pprof</code> 的提示符中，我们可以使用 <code>list</code> 命令检查 <code>algOne</code> 函数。 该命令将正则表达式作为参数来查找您要查看的函数。</p>
+<p><strong>Listing 8</strong></p>
+<pre><code class="language-command" data-lang="command">(pprof) list algOne
+Total: 335.03MB
+ROUTINE ======================== .../memcpu.algOne in code/go/src/.../memcpu/stream.go
+ 335.03MB   335.03MB (flat, cum)   100% of Total
+        .          .     78:
+        .          .     79:// algOne is one way to solve the problem.
+        .          .     80:func algOne(data []byte, find []byte, repl []byte, output *bytes.Buffer) {
+        .          .     81:
+        .          .     82: // Use a bytes Buffer to provide a stream to process.
+ 318.53MB   318.53MB     83: input := bytes.NewBuffer(data)
+        .          .     84:
+        .          .     85: // The number of bytes we are looking for.
+        .          .     86: size := len(find)
+        .          .     87:
+        .          .     88: // Declare the buffers we need to process the stream.
+  16.50MB    16.50MB     89: buf := make([]byte, size)
+        .          .     90: end := size - 1
+        .          .     91:
+        .          .     92: // Read in an initial number of bytes we need to get started.
+        .          .     93: if n, err := io.ReadFull(input, buf[:end]); err != nil || n &lt; end {
+        .          .     94:       output.Write(buf[:n])
+(pprof) _
+</code></pre><p>基于此配置文件，我们现在知道 <code>input</code>，并且 <code>buf</code> 切片的支持数组正在分配给堆。由于 <code>input</code> 是一个指针变量，配置得文件真正说的是指针 <code>input</code> 指向的 <code>bytes.Buffer</code> 值正在分配 。所以让我们首先集中到 <code>input</code> 配置并理解为什么它被分配。</p>
+<p>我们可以假设它正在分配，因为函数对 <code>bytes.NewBuffer</code> 的调用是共享 <code>bytes.Buffer</code> 的值，它创建了调用栈。然而，在 <code>flat</code> 列（在 pprof 的第一列输出的值）存在的值告诉我值正在创建，因为 <code>algOne</code> 函数以一种导致逃逸的方式共享它。</p>
+<p>我知道 <code>flag</code> 列表示函数分配，因为看看 <code>list</code> 命令显示的基准函数正在调用 <code>algOne</code>。</p>
+<p><strong>Listing 9</strong></p>
+<pre><code class="language-command" data-lang="command">(pprof) list Benchmark
+Total: 335.03MB
+ROUTINE ======================== .../memcpu.BenchmarkAlgorithmOne in code/go/src/.../memcpu/stream_test.go
+        0   335.03MB (flat, cum)   100% of Total
+        .          .     18: find := []byte(&quot;elvis&quot;)
+        .          .     19: repl := []byte(&quot;Elvis&quot;)
+        .          .     20:
+        .          .     21: b.ResetTimer()
+        .          .     22:
+        .   335.03MB     23: for i := 0; i &lt; b.N; i++ {
+        .          .     24:       output.Reset()
+        .          .     25:       algOne(in, find, repl, &amp;output)
+        .          .     26: }
+        .          .     27:}
+        .          .     28:
+(pprof) _
+</code></pre><p>由于在 <code>cum</code> 列中只有一个值（第二列），这告诉我 <code>Benchamrk</code> 函数没有直接分配任何内容。所有分配都发生在该循环内进行的函数调用中。 您可以看到这两个 <code>list1</code> 调用匹配的所有分配号。</p>
+<p>我们仍然不知道为什么<code>bytes.Buffe</code> 值在分配。这就是 <code>go build</code> 的 <code>-gcflags &quot;-m -m&quot;</code> 开关派上用场的地方。profiler只能告诉您转义了哪些值，但是build命令可以告诉您原因。</p>
+<h2 id="编译器报告">编译器报告</h2>
+<p>让我们问一下编译器在与代码的转义分析有关时做出了哪些决定。</p>
+<p><strong>Listing 10</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go build -gcflags <span style="color:#d14">&#34;-m -m&#34;</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>这条命令产生了很多的输出。我们仅需要搜索任何拥有 <code>stream.go:83</code> 的输出，因为 <code>stream.go</code> 是包含这个代码的文件名，83包含在 <code>bytes.buffer</code> 值的构造。在搜索后，我们会发现有6行。</p>
+<p><strong>Listing 11</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./stream.go:83: inlining call to bytes.NewBuffer func<span style="color:#000;font-weight:bold">([]</span>byte<span style="color:#000;font-weight:bold">)</span> *bytes.Buffer <span style="color:#000;font-weight:bold">{</span> <span style="color:#000;font-weight:bold">return</span> &amp;bytes.Buffer literal <span style="color:#000;font-weight:bold">}</span>
+
+./stream.go:83: &amp;bytes.Buffer literal escapes to heap
+./stream.go:83:   from ~r0 <span style="color:#000;font-weight:bold">(</span>assign-pair<span style="color:#000;font-weight:bold">)</span> at ./stream.go:83
+./stream.go:83:   from input <span style="color:#000;font-weight:bold">(</span>assigned<span style="color:#000;font-weight:bold">)</span> at ./stream.go:83
+./stream.go:83:   from input <span style="color:#000;font-weight:bold">(</span>interface-converted<span style="color:#000;font-weight:bold">)</span> at ./stream.go:93
+./stream.go:83:   from input <span style="color:#000;font-weight:bold">(</span>passed to call<span style="color:#000;font-weight:bold">[</span>argument escapes<span style="color:#000;font-weight:bold">])</span> at ./stream.go:93
+</code></pre></td></tr></table>
+</div>
+</div><p>我们找到的第一行 <code>stream.go:83</code> 是有意思的。</p>
+<p><strong>Listing 12</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./stream.go:83: inlining call to bytes.NewBuffer func<span style="color:#000;font-weight:bold">([]</span>byte<span style="color:#000;font-weight:bold">)</span> *bytes.Buffer <span style="color:#000;font-weight:bold">{</span> <span style="color:#000;font-weight:bold">return</span> &amp;bytes.Buffer literal <span style="color:#000;font-weight:bold">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>它确认了 <code>bytes.Buffers</code> 值并未逃逸，因为它被传递到调用栈。这是因为 <code>bytes.NewBuffer</code> 永远没有调用。函数中的代码被内联。</p>
+<p>所以这是我写的一片代码：</p>
+<p><strong>Listing 13</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">83</span>     input <span style="color:#000;font-weight:bold">:=</span> bytes.<span style="color:#900;font-weight:bold">NewBuffer</span>(data)
+</code></pre></td></tr></table>
+</div>
+</div><p>由于编译器选择内联 <code>bytes.NewBuffer</code> 函数调用，我写的代码被转换为：</p>
+<p><strong>Listing 14</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">input <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">&amp;</span>bytes.Buffer{buf: data}
+</code></pre></td></tr></table>
+</div>
+</div><p>这意味着 <code>algOne</code> 函数直接构造 <code>bytes.Buffer</code> 的值。所以现在问题是，是什么导致了值从 <code>algOne</code> 栈帧逃逸了？答案在报告中的另外5行被找到。</p>
+<p><strong>Listing 15</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./stream.go:83: &amp;bytes.Buffer literal escapes to heap
+./stream.go:83:   from ~r0 <span style="color:#000;font-weight:bold">(</span>assign-pair<span style="color:#000;font-weight:bold">)</span> at ./stream.go:83
+./stream.go:83:   from input <span style="color:#000;font-weight:bold">(</span>assigned<span style="color:#000;font-weight:bold">)</span> at ./stream.go:83
+./stream.go:83:   from input <span style="color:#000;font-weight:bold">(</span>interface-converted<span style="color:#000;font-weight:bold">)</span> at ./stream.go:93
+./stream.go:83:   from input <span style="color:#000;font-weight:bold">(</span>passed to call<span style="color:#000;font-weight:bold">[</span>argument escapes<span style="color:#000;font-weight:bold">])</span> at ./stream.go:93
+</code></pre></td></tr></table>
+</div>
+</div><p>这些行告诉我们，是代码的 93 行导致了逃逸。 <code>input</code> 变量被分配给接口值。</p>
+<h2 id="interfaces">Interfaces</h2>
+<p>我根本没有记得在代码中分配给一个接口值。然而，如果你看 93行，发行了一什么都清晰了。</p>
+<p><strong>Listing 16</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"> <span style="color:#099">93</span>     <span style="color:#000;font-weight:bold">if</span> n, err <span style="color:#000;font-weight:bold">:=</span> io.<span style="color:#900;font-weight:bold">ReadFull</span>(input, buf[:end]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+ <span style="color:#099">94</span>         output.<span style="color:#900;font-weight:bold">Write</span>(buf[:n])
+ <span style="color:#099">95</span>         <span style="color:#000;font-weight:bold">return</span>
+ <span style="color:#099">96</span>     }
+</code></pre></td></tr></table>
+</div>
+</div><p>调用 <code>io.ReadFull</code> 导致了接口指定。如果你看 <code>io.ReadFull</code> 函数的定义，你可以看到它是如何通过接口类型接收 <code>input</code> 值。</p>
+<p><strong>Listing 17</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">type</span> Reader <span style="color:#000;font-weight:bold">interface</span> {
+      <span style="color:#900;font-weight:bold">Read</span>(p []<span style="color:#458;font-weight:bold">byte</span>) (n <span style="color:#458;font-weight:bold">int</span>, err <span style="color:#458;font-weight:bold">error</span>)
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">ReadFull</span>(r Reader, buf []<span style="color:#458;font-weight:bold">byte</span>) (n <span style="color:#458;font-weight:bold">int</span>, err <span style="color:#458;font-weight:bold">error</span>) {
+      <span style="color:#000;font-weight:bold">return</span> <span style="color:#900;font-weight:bold">ReadAtLeast</span>(r, buf, <span style="color:#0086b3">len</span>(buf))
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>看起来将 <code>bytes.Buffer</code> 地址向下传递到调用栈并存储到 <code>Reader</code> 接口值里面会导致逃逸。现在我们知道使用接口有开销：分配和间接。因此，如果不清楚接口如何使代码变得更好，你可能不想使用它。这是我遵循的一些准则，以验证代码中接口的使用。</p>
+<p>何时使用接口：</p>
+<ul>
+<li>
+<p>API的用户需要提供实现细节</p>
+</li>
+<li>
+<p>API需要在内部维护多个实现</p>
+</li>
+<li>
+<p>已经确定了API的部分可以更改，并且需要解耦</p>
+</li>
+</ul>
+<p>不要使用接口的情形：</p>
+<ul>
+<li>为了使用接口而使用接口</li>
+<li>概括算法</li>
+<li>当用户可以声明他们自己的接口</li>
+</ul>
+<p>现在我们可以问自己，这个算法真的需要 <code>io.ReadFull</code> 函数吗？答案是不，因为 <code>bytes.Buffer</code> 类型有方法集我们可以使用。针对函数拥有的值使用方法可能会阻止分配。</p>
+<p>我们来修改下代码，移除 <code>io</code> 包，对变量 <code>input</code> 直接使用 <code>Read</code> 方法。</p>
+<p><em>该代码的修改移除了导入 <code>io</code> 包的需要，来保持所有行号是一样的，我对 <code>io</code> 包导入使用了空白标识符。 这将使导入保留在列表中</em></p>
+<p><strong>Listing 18</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"> <span style="color:#099">12</span> <span style="color:#000;font-weight:bold">import</span> (
+ <span style="color:#099">13</span>     <span style="color:#d14">&#34;bytes&#34;</span>
+ <span style="color:#099">14</span>     <span style="color:#d14">&#34;fmt&#34;</span>
+ <span style="color:#099">15</span>     _ <span style="color:#d14">&#34;io&#34;</span>
+ <span style="color:#099">16</span> )
+
+ <span style="color:#099">80</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">algOne</span>(data []<span style="color:#458;font-weight:bold">byte</span>, find []<span style="color:#458;font-weight:bold">byte</span>, repl []<span style="color:#458;font-weight:bold">byte</span>, output <span style="color:#000;font-weight:bold">*</span>bytes.Buffer) {
+ <span style="color:#099">81</span>
+ <span style="color:#099">82</span>     <span style="color:#998;font-style:italic">// Use a bytes Buffer to provide a stream to process.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">83</span>     input <span style="color:#000;font-weight:bold">:=</span> bytes.<span style="color:#900;font-weight:bold">NewBuffer</span>(data)
+ <span style="color:#099">84</span>
+ <span style="color:#099">85</span>     <span style="color:#998;font-style:italic">// The number of bytes we are looking for.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">86</span>     size <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(find)
+ <span style="color:#099">87</span>
+ <span style="color:#099">88</span>     <span style="color:#998;font-style:italic">// Declare the buffers we need to process the stream.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">89</span>     buf <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>([]<span style="color:#458;font-weight:bold">byte</span>, size)
+ <span style="color:#099">90</span>     end <span style="color:#000;font-weight:bold">:=</span> size <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>
+ <span style="color:#099">91</span>
+ <span style="color:#099">92</span>     <span style="color:#998;font-style:italic">// Read in an initial number of bytes we need to get started.
+</span><span style="color:#998;font-style:italic"></span> <span style="color:#099">93</span>     <span style="color:#000;font-weight:bold">if</span> n, err <span style="color:#000;font-weight:bold">:=</span> input.<span style="color:#900;font-weight:bold">Read</span>(buf[:end]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> <span style="color:#000;font-weight:bold">||</span> n &lt; end {
+ <span style="color:#099">94</span>         output.<span style="color:#900;font-weight:bold">Write</span>(buf[:n])
+ <span style="color:#099">95</span>         <span style="color:#000;font-weight:bold">return</span>
+ <span style="color:#099">96</span>     }
+ <span style="color:#099">97</span>
+ <span style="color:#099">98</span>     <span style="color:#000;font-weight:bold">for</span> {
+ <span style="color:#099">99</span>
+<span style="color:#099">100</span>         <span style="color:#998;font-style:italic">// Read in one byte from the input stream.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">101</span>         <span style="color:#000;font-weight:bold">if</span> _, err <span style="color:#000;font-weight:bold">:=</span> input.<span style="color:#900;font-weight:bold">Read</span>(buf[end:]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">102</span>
+<span style="color:#099">103</span>             <span style="color:#998;font-style:italic">// Flush the reset of the bytes we have.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">104</span>             output.<span style="color:#900;font-weight:bold">Write</span>(buf[:end])
+<span style="color:#099">105</span>             <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">106</span>         }
+<span style="color:#099">107</span>
+<span style="color:#099">108</span>         <span style="color:#998;font-style:italic">// If we have a match, replace the bytes.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">109</span>         <span style="color:#000;font-weight:bold">if</span> bytes.<span style="color:#900;font-weight:bold">Compare</span>(buf, find) <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span> {
+<span style="color:#099">110</span>             output.<span style="color:#900;font-weight:bold">Write</span>(repl)
+<span style="color:#099">111</span>
+<span style="color:#099">112</span>             <span style="color:#998;font-style:italic">// Read a new initial number of bytes.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">113</span>             <span style="color:#000;font-weight:bold">if</span> n, err <span style="color:#000;font-weight:bold">:=</span> input.<span style="color:#900;font-weight:bold">Read</span>(buf[:end]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> <span style="color:#000;font-weight:bold">||</span> n &lt; end {
+<span style="color:#099">114</span>                 output.<span style="color:#900;font-weight:bold">Write</span>(buf[:n])
+<span style="color:#099">115</span>                 <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">116</span>             }
+<span style="color:#099">117</span>
+<span style="color:#099">118</span>             <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">119</span>         }
+<span style="color:#099">120</span>
+<span style="color:#099">121</span>         <span style="color:#998;font-style:italic">// Write the front byte since it has been compared.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">122</span>         output.<span style="color:#900;font-weight:bold">WriteByte</span>(buf[<span style="color:#099">0</span>])
+<span style="color:#099">123</span>
+<span style="color:#099">124</span>         <span style="color:#998;font-style:italic">// Slice that front byte out.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">125</span>         <span style="color:#0086b3">copy</span>(buf, buf[<span style="color:#099">1</span>:])
+<span style="color:#099">126</span>     }
+<span style="color:#099">127</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>当我们对这个代码修改运行基准，我们可以看到对 <code>bytes.Buffer</code> 值的分配已经消失。</p>
+<p><strong>Listing 19</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go <span style="color:#0086b3">test</span> -run none -bench AlgorithmOne -benchtime 3s -benchmem -memprofile mem.out
+BenchmarkAlgorithmOne-8    	<span style="color:#099">2000000</span> 	     <span style="color:#099">1814</span> ns/op         <span style="color:#099">5</span> B/op  	      <span style="color:#099">1</span> allocs/op
+</code></pre></td></tr></table>
+</div>
+</div><p>我们还可以看到性能提升了大约 ~29%。代码运行从 <code>2570 ns/op</code> 到 <code>1814 ns/op</code>。解决了这个问题之后，我们现在就可以集中注意到为 <code>buf</code> 切片分配的数组支持了。如果对刚生成的新的 profile 数据再次使用 profiler 工具，我们应该可以辨别是什么导致了剩余的分配。</p>
+<p><strong>Listing 20</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#a61717;background-color:#e3d2d2">$</span> <span style="color:#000;font-weight:bold">go</span> tool pprof <span style="color:#000;font-weight:bold">-</span>alloc_space memcpu.test mem.out
+Entering interactive <span style="color:#900;font-weight:bold">mode</span> (<span style="color:#000;font-weight:bold">type</span> <span style="color:#d14">&#34;help&#34;</span> <span style="color:#000;font-weight:bold">for</span> commands)
+(pprof) list algOne
+Total: <span style="color:#099">7.50</span>MB
+ROUTINE <span style="color:#000;font-weight:bold">========================</span> <span style="color:#000;font-weight:bold">.../</span>memcpu.BenchmarkAlgorithmOne in code<span style="color:#000;font-weight:bold">/</span><span style="color:#000;font-weight:bold">go</span><span style="color:#000;font-weight:bold">/</span>src<span style="color:#000;font-weight:bold">/.../</span>memcpu<span style="color:#000;font-weight:bold">/</span>stream_test.<span style="color:#000;font-weight:bold">go</span>
+     <span style="color:#099">11</span>MB       <span style="color:#099">11</span><span style="color:#900;font-weight:bold">MB</span> (flat, cum)   <span style="color:#099">100</span><span style="color:#000;font-weight:bold">%</span> of Total
+        .          .     <span style="color:#099">84</span>:
+        .          .     <span style="color:#099">85</span>: <span style="color:#998;font-style:italic">// The number of bytes we are looking for.
+</span><span style="color:#998;font-style:italic"></span>        .          .     <span style="color:#099">86</span>: size <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(find)
+        .          .     <span style="color:#099">87</span>:
+        .          .     <span style="color:#099">88</span>: <span style="color:#998;font-style:italic">// Declare the buffers we need to process the stream.
+</span><span style="color:#998;font-style:italic"></span>     <span style="color:#099">11</span>MB       <span style="color:#099">11</span>MB     <span style="color:#099">89</span>: buf <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>([]<span style="color:#458;font-weight:bold">byte</span>, size)
+        .          .     <span style="color:#099">90</span>: end <span style="color:#000;font-weight:bold">:=</span> size <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>
+        .          .     <span style="color:#099">91</span>:
+        .          .     <span style="color:#099">92</span>: <span style="color:#998;font-style:italic">// Read in an initial number of bytes we need to get started.
+</span><span style="color:#998;font-style:italic"></span>        .          .     <span style="color:#099">93</span>: <span style="color:#000;font-weight:bold">if</span> n, err <span style="color:#000;font-weight:bold">:=</span> input.<span style="color:#900;font-weight:bold">Read</span>(buf[:end]); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> <span style="color:#000;font-weight:bold">||</span> n &lt; end {
+        .          .     <span style="color:#099">94</span>:       output.<span style="color:#900;font-weight:bold">Write</span>(buf[:n])
+</code></pre></td></tr></table>
+</div>
+</div><p>剩余的唯一的分配在第89行，它是切片的支持数组。</p>
+<h2 id="栈帧stack-frames">栈帧(Stack Frames)</h2>
+<p>我们想要知道是什么导致了 <code>buf</code> 的支持数组的分配？让我们使用 <code>-gcflags &quot;-m -m&quot;</code> 选项再次运行 <code>go build</code> 同时搜索 <code>stream:89</code>。</p>
+<p><strong>Listing 21</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go build -gcflags <span style="color:#d14">&#34;-m -m&#34;</span>
+./stream.go:89: make<span style="color:#000;font-weight:bold">([]</span>byte, size<span style="color:#000;font-weight:bold">)</span> escapes to heap
+./stream.go:89:   from make<span style="color:#000;font-weight:bold">([]</span>byte, size<span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">(</span>too large <span style="color:#000;font-weight:bold">for</span> stack<span style="color:#000;font-weight:bold">)</span> at ./stream.go:89
+</code></pre></td></tr></table>
+</div>
+</div><p>报告显示支持的数组 “too large for stack&quot;，这个消息是非常有误导性的。并不是支持数组太大，而是编译器在编译期并不知道支持数组的大小。</p>
+<p>仅当编译器在编译期知道值的大小时，值才可能被放到栈上。这是因为对于每个函数，每个栈帧的大小，是在编译期被计算的。如果编译器不知道会下的大小，它被放到堆上。</p>
+<p>为了展示这个，我们暂时将切片的大小硬编码为 <code>5</code> ，然后再次运行基准。</p>
+<p><strong>Listing 22</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"> <span style="color:#099">89</span>     buf <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>([]<span style="color:#458;font-weight:bold">byte</span>, <span style="color:#099">5</span>)
+</code></pre></td></tr></table>
+</div>
+</div><p>此时，当运行基准，分配消失了。</p>
+<p><strong>Listing 24</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go build -gcflags <span style="color:#d14">&#34;-m -m&#34;</span>
+./stream.go:83: algOne &amp;bytes.Buffer literal does not escape
+./stream.go:89: algOne make<span style="color:#000;font-weight:bold">([]</span>byte, 5<span style="color:#000;font-weight:bold">)</span> does not escape
+</code></pre></td></tr></table>
+</div>
+</div><p>很明显，我们不能用硬编码切片的大小，因此我们需要为这个算法使用1个分配。</p>
+<h2 id="分配和性能">分配和性能</h2>
+<p>比较我们在每个重构过程中获得的不同性能增益。</p>
+<p><strong>Listing 25</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">Before any optimization
+BenchmarkAlgorithmOne-8    	<span style="color:#099">2000000</span> 	     <span style="color:#099">2570</span> ns/op       <span style="color:#099">117</span> B/op  	      <span style="color:#099">2</span> allocs/op
+
+Removing the bytes.Buffer allocation
+BenchmarkAlgorithmOne-8    	<span style="color:#099">2000000</span> 	     <span style="color:#099">1814</span> ns/op         <span style="color:#099">5</span> B/op  	      <span style="color:#099">1</span> allocs/op
+
+Removing the backing array allocation
+BenchmarkAlgorithmOne-8    	<span style="color:#099">3000000</span> 	     <span style="color:#099">1720</span> ns/op         <span style="color:#099">0</span> B/op  	      <span style="color:#099">0</span> allocs/op
+</code></pre></td></tr></table>
+</div>
+</div><p>通过移除 <code>bytes.Buffer</code> 的分配，我们将性能提升了 <code>~29%</code>，当所有的分配都被移除，性能提升了 <code>~33%</code>。分配是应用程序性能可能受到影响的地方。</p>
+<h2 id="结论">结论</h2>
+<p>Go具有一些出色的工具，可让您了解编译器与转义分析相关的决策。 根据这些信息，您可以将代码重构为同情，从而将不需要保留在堆中的值保留在栈中。 您不会编写零分配软件，但希望在可能的情况下最小化分配。</p>
+<p>话虽这么说，编写代码千万不要以性能为首，因为您不想猜测性能。 编写优先考虑正确性的代码。 这意味着首先要关注完整性，可读性和简单性。 有了可用的程序后，请确定该程序是否足够快。 如果速度不够快，请使用该语言提供的工具来查找和解决您的性能问题。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/translate/Language-mechanics-on-escape-analysis/">逃逸分析的语言机制</a></li>
+        
+        <li><a href="/post/translate/Language-mechanics-on-stacks-and-pointers/">栈和指针的语言机制</a></li>
+        
+        <li><a href="/post/2fa-auth-of-go/">2fa 双因素认证的Go实现</a></li>
+        
+        <li><a href="/post/Go-work-stealing-scheduler/">Go语言调度器的工作窃取</a></li>
+        
+        <li><a href="/post/Scheduling-In-Go-3-Concurrency/">Go的调度：第三部分 - 并发</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/profiling'>profiling</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go的调度：第一部分-OS调度">Go的调度：第一部分-OS调度</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (11)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -6,7 +6,43 @@
     <description>Recent content on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Wed, 03 Mar 2021 13:36:02 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 20 Apr 2021 10:33:39 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>数据和语义的设计哲学</title>
+      <link>https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/</link>
+      <pubDate>Tue, 20 Apr 2021 10:33:39 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/</guid>
+      <description>原文 Design Philosophy On Data And Semantics 楔子 这是一个由四部分组成的系列文章的终结篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解</description>
+    </item>
+    
+    <item>
+      <title>内存剖析的语言机制</title>
+      <link>https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/</link>
+      <pubDate>Mon, 19 Apr 2021 17:06:13 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/</guid>
+      <description>楔子 这是一个由四部分组成的系列文章的第三篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解。这篇文章主要关</description>
+    </item>
+    
+    <item>
+      <title>逃逸分析的语言机制</title>
+      <link>https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/</link>
+      <pubDate>Mon, 19 Apr 2021 15:13:56 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/</guid>
+      <description>楔子 这是一个由四部分组成的系列文章的第二篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解。这篇文章主要关</description>
+    </item>
+    
+    <item>
+      <title>栈和指针的语言机制</title>
+      <link>https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/</link>
+      <pubDate>Mon, 19 Apr 2021 09:49:05 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/</guid>
+      <description>楔子 这是一个由四部分组成的系列文章的第一篇，该系列文章将提供对Go中指针、堆栈、堆、转义分析和值/指针语义背后的机制和设计的理解。这篇文章主</description>
+    </item>
+    
     <item>
       <title>2fa 双因素认证的Go实现</title>
       <link>https://cyberwave.github.io/post/2fa-auth-of-go/</link>

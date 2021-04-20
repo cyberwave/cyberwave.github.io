@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>数据和语义的设计哲学 | 听雪者的博客</title>
+    <meta property="og:title" content="数据和语义的设计哲学 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-04-20T10:33:39&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-04-20T10:33:39&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="数据和语义的设计哲学">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#楔子">楔子</a></li>
+    <li><a href="#设计哲学">设计哲学</a></li>
+    <li><a href="#心智模型">心智模型</a></li>
+    <li><a href="#调试debugging">调试(Debugging)</a></li>
+    <li><a href="#可读性">可读性</a></li>
+    <li><a href="#面向数据的设计">面向数据的设计</a></li>
+    <li><a href="#类型就是生命">类型（就是生命）</a></li>
+    <li><a href="#数据拥有能力">数据（拥有能力）</a></li>
+    <li><a href="#多态性">多态性</a></li>
+    <li><a href="#原型优先">原型优先</a></li>
+    <li><a href="#语义指导方针">语义指导方针</a>
+      <ul>
+        <li><a href="#内置类型">内置类型</a></li>
+        <li><a href="#引用类型">引用类型</a></li>
+        <li><a href="#用户定义类型">用户定义类型</a></li>
+      </ul>
+    </li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">数据和语义的设计哲学</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年4月20日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>原文 <a href="https://www.ardanlabs.com/blog/2017/06/design-philosophy-on-data-and-semantics.html">Design Philosophy On Data And Semantics</a></p>
+<h2 id="楔子">楔子</h2>
+<p>这是一个由四部分组成的系列文章的终结篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解。这篇文章主要关注代码中应用值/指针语义的数据和设计哲学</p>
+<p>四部分系列文章索引：</p>
+<ol>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-stacks-and-pointers.html">Language Mechanics On Stacks And Pointers</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-escape-analysis.html">Language Mechanics On Escape Analysis</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/language-mechanics-on-memory-profiling.html">Language Mechanics On Memory Profiling</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/design-philosophy-on-data-and-semantics.html">Design Philosophy On Data And Semantics</a></li>
+</ol>
+<h2 id="设计哲学">设计哲学</h2>
+<p><em><strong>&ldquo;值语义将值保持在栈上，它减少了垃圾回收(GC)压力。然而，值语义在任何给定值在存储，追踪和维护时，需要多个副本。指针语义将值放在堆上，它带来了GC的压力。然而，指针语义是有效的，因为仅需要存储，追踪和维护一个值。&quot;- Bill Kennedy</strong></em></p>
+<p>如果您希望在整个软件中保持完整性和可读性，那么对于给定类型的数据，一致地使用值/指针语义是至关重要的。为什么？因为，如果在函数之间传递数据时更改数据的语义，就很难保持代码的清晰一致的心理模型。代码库和团队越大，代码库中隐藏的bug、数据竞争和副作用就越多。</p>
+<p>我想从一组设计理念开始，这些理念将驱动选择一种语义而不是另一种语义的指导方针。</p>
+<h2 id="心智模型">心智模型</h2>
+<p><em><strong>”让我们想象一个项目最终会有一百万行代码或更多。这些项目在美国成功的概率现在非常低，远低于50%。这是值得商榷的。“ - Tom Love(Objective-C的发明者)</strong></em></p>
+<p>Tom还提到一盒复印纸能装10万行代码。花点时间让它沉下去。在那个盒中，你能维护多少代码的心理模型？</p>
+<p>我相信，要求一个开发人员维护一个超过一令纸（ream令，约500张，约10k行代码）的心智模型已经是相当高的要求了。但是，我们假设每个开发者大约 10k 行代码，维护一个超过百万行代码的代码库，则需要100个开发者的团队。这100个人需要合作，分组，追踪并经常沟通。现在看下你当前的1~10个开发者的团队。你在小范围内做得如何？每个开发人员有10k行代码，您的代码库的大小是否与团队的大小一致？</p>
+<h2 id="调试debugging">调试(Debugging)</h2>
+<p><em><strong>&ldquo;最难的 bug 是那些你的心智模型是错误的情况，所以你根本看不到问题所在&rdquo; - Brian Kernighan</strong></em></p>
+<p>我不相信使用调试器，除非你已经失去了你的心理模型的代码，现在正在浪费精力试图理解这个问题。调试器被滥用时是邪恶的，当调试器成为任何可观察到的bug的第一反应时，你就知道你在滥用它。</p>
+<p>如果你在生产中遇到问题，你会去寻求什么？没错，日志。如果日志在开发过程中对您不起作用，那么当出现生产缺陷时，它们肯定对您不起作用。日志需要有一个代码库的心理模型，这样您就可以通过阅读代码来发现bug。</p>
+<h2 id="可读性">可读性</h2>
+<p><em><strong>”C 是我看到过的在力量和表现力之意平衡得最好的。你可以通过编程相当直接地做任何你想做的事情，同时你在机器上会发生什么有一个非常好的心智模型；你可以相当好地预测它运行的速度，你了解发生了什么….“ - Brian Kernighan</strong></em></p>
+<p>我相信 Brian 的这句话同样适用于Go。维持这种“心智模式”就是一切。它推动了完整性、可读性和简单性。这些都是编写良好的软件的基石，使其能够得到维护和持续使用。为给定类型的数据编写保持一致使用值/指针语义的代码是实现这一点的重要方法。</p>
+<h2 id="面向数据的设计">面向数据的设计</h2>
+<p><em><strong>”如果您不了解数据，那么您就不了解问题。 这是因为所有问题都是唯一的，并且特定于您正在使用的数据。 当数据改变时，您的问题也在改变。 当您的问题在变化时，算法（数据转换）也需要随之变化。“ - Bill Kennedy</strong></em></p>
+<p>考虑一下，你工作的每个问题是数据转移的问题。你写的每个函数和运行的每个程序会使用一些输入数据，然后产生一些输出数据。你软件的心智模型是，从这个看法，是理解这些数据转移（即，他们在代码库中是如何组织和应用的）。”少即是多“的观点对于以更少的层，更少的陈述，概括，更少的复杂性和更少的努力来解决问题至关重要。 这使您和您的团队的工作变得更轻松，但也使硬件更容易执行这些数据</p>
+<h2 id="类型就是生命">类型（就是生命）</h2>
+<p><em><strong>“完整性意味着每一个分配，每一次内存读取和每一次内存写入都是准确，一致和高效的。 类型系统对于确保我们具有这种微观的完整性至关重要。” -William Kennedy</strong></em></p>
+<p>如果数据驱动您所做的一切，那么代表数据的类型就至关重要。 在我的世界中，“类型就是生命”，因为类型为编译器提供了确保数据完整性的能力。 类型还驱动并指示语义规则代码必须尊重其操作的数据。 这是正确使用值/指针语义的地方：从类型开始。</p>
+<h2 id="数据拥有能力">数据（拥有能力）</h2>
+<p><em><strong>“在可行或合理的情况下，使一条数据具有某种功能的方法才有效。” -William Kennedy</strong></em></p>
+<p>值/指针语义的想法并没有打动Go开发人员，直到他们必须确定方法的接收器类型。 我看到的问题很多，我应该使用值接收器还是指针接收器？ 听到这个问题后，我就知道开发人员对这些语义没有很好的了解。</p>
+<p>方法的目的是提供某种数据功能。 考虑一下。 一条数据可以执行某些操作。 我一直希望焦点集中在数据上，因为驱动程序功能的是数据。 数据驱动着您编写的算法，放置的封装以及可以实现的性能。</p>
+<h2 id="多态性">多态性</h2>
+<p><em><strong>”多态性意味着你写一个确定的程序，它根据所操作的数据的表现不同的行为“ Tom Kurtz(BASIC的发明者)</strong></em></p>
+<p>Tom所说的上面引号的内容，我爱了爱了。函数的表现不同，取决于它所操作的数据。数据的行为使函数与它们可以接受和使用的具体数据类型解耦。 这是一条数据具有功能的一个核心原因。 正是这种想法是架构和设计可以适应变化的系统的基石。</p>
+<h2 id="原型优先">原型优先</h2>
+<p><em><strong>“除非开发人员对软件的用途有一个非常好的了解，否则该软件很可能会表现不佳。 如果开发人员对应用程序不太了解，那么获得尽可能多的用户输入和经验就至关重要。” - Brian Kernighan</strong></em></p>
+<p>我希望您始终首先专注于理解实现数据转换以解决问题所需的具体数据和算法。 采取这种原型优先方法，并编写也可以在生产环境中部署的具体实现（如果这样做合理可行）。 在具体的实现可行之后，一旦您了解了什么可行和不可行，则应集中精力进行重构，以通过赋予数据功能将实现与具体数据解耦。</p>
+<h2 id="语义指导方针">语义指导方针</h2>
+<p>您必须在声明特定数据类型时决定将其用于哪种语义，值或指针。接受或返回该类型数据的API必须遵守为该类型选择的语义。不允许API规定或更改语义。他们必须知道用于数据的语义，并遵守该语义。这至少，部分是，如何在大型代码库中实现一致性的。</p>
+<p>以下是基本准则：</p>
+<ul>
+<li>在声明类型时，必须确定所使用的语义。</li>
+<li>函数和方法必须尊重给定类型的语义选择。</li>
+<li>避免让方法接收器使用与给定类型相对应的语义。</li>
+<li>避免使用与给定类型对应的语义不同的函数来接收/返回数据。</li>
+<li>避免更改给定类型的语义。</li>
+</ul>
+<p><em>这些准则有一些例外，其中最大的例外是编组。Unmarshaling封送总是需要使用指针语义。Marshaling和Unmarhaling似乎始终是该规则的例外。</em></p>
+<p>对于给定的类型，您如何选择一种语义而不是另一种？这些准则将帮助您回答问题。下面，我们将在某些情况下应用准则：</p>
+<h3 id="内置类型">内置类型</h3>
+<p>Go的内置类型的代表是数字，文本和布尔数据。这些类型应该使用值语义进行处理。不要使用指针来共享这些类型的值，除非你有一个非常好的原因。</p>
+<p>作为例子，看下这些来自 <code>strings</code> 包的函数声明</p>
+<p><strong>Listing 1</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Replace</span>(s, old, new <span style="color:#458;font-weight:bold">string</span>, n <span style="color:#458;font-weight:bold">int</span>) <span style="color:#458;font-weight:bold">string</span>
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">LastIndex</span>(s, sep <span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">int</span>
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">ContainsRune</span>(s <span style="color:#458;font-weight:bold">string</span>, r <span style="color:#458;font-weight:bold">rune</span>) <span style="color:#458;font-weight:bold">bool</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>所有这些函数使用在设计API时使用值语义</p>
+<h3 id="引用类型">引用类型</h3>
+<p>在语言中，引用类型的代表是 slice, map, interface, function 和 channel 类型。这些类型应该使用值语义，因为他们被设置为存在于栈上来最小化GC的压力。它们允许每个函数拥有自己的值副本，而不是每个函数调用引起潜在的分配。这是可能的，因为这些值包含一个指针，以在调用间共享底层的数据结构。</p>
+<p>除非您有充分的理由，否则不要使用指针共享这些类型的值。 将调用堆栈中的 slice 或 map 值共享到 <code>Unmarshal</code> 函数中可能是一个例外。 例如，查看 <code>net</code> 包中声明的这两种类型。</p>
+<p><strong>Listing 2</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">type</span> IP []<span style="color:#458;font-weight:bold">byte</span>
+<span style="color:#000;font-weight:bold">type</span> IPMask []<span style="color:#458;font-weight:bold">byte</span>
+</code></pre></td></tr></table>
+</div>
+</div><p><code>IP</code> 和 <code>IPMask</code> 类型都基于一个字节切片。这意味着他们都是引用类型，他们应该遵循值语义规则。这儿有一个名为 <code>Mask</code> 的方法，它被声明为 <code>IP</code> 类型，接收的 <code>IPMask</code> 的值。</p>
+<p><strong>Listing 3</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> (ip IP) <span style="color:#900;font-weight:bold">Mask</span>(mask IPMask) IP {
+    <span style="color:#000;font-weight:bold">if</span> <span style="color:#0086b3">len</span>(mask) <span style="color:#000;font-weight:bold">==</span> IPv6len <span style="color:#000;font-weight:bold">&amp;&amp;</span> <span style="color:#0086b3">len</span>(ip) <span style="color:#000;font-weight:bold">==</span> IPv4len <span style="color:#000;font-weight:bold">&amp;&amp;</span> <span style="color:#900;font-weight:bold">allFF</span>(mask[:<span style="color:#099">12</span>]) {
+        mask = mask[<span style="color:#099">12</span>:]
+    }
+    <span style="color:#000;font-weight:bold">if</span> <span style="color:#0086b3">len</span>(mask) <span style="color:#000;font-weight:bold">==</span> IPv4len <span style="color:#000;font-weight:bold">&amp;&amp;</span> <span style="color:#0086b3">len</span>(ip) <span style="color:#000;font-weight:bold">==</span> IPv6len <span style="color:#000;font-weight:bold">&amp;&amp;</span> <span style="color:#900;font-weight:bold">bytesEqual</span>(ip[:<span style="color:#099">12</span>], v4InV6Prefix) {
+        ip = ip[<span style="color:#099">12</span>:]
+    }
+    n <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(ip)
+    <span style="color:#000;font-weight:bold">if</span> n <span style="color:#000;font-weight:bold">!=</span> <span style="color:#0086b3">len</span>(mask) {
+        <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">nil</span>
+    }
+    out <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>(IP, n)
+    <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; n; i<span style="color:#000;font-weight:bold">++</span> {
+        out[i] = ip[i] <span style="color:#000;font-weight:bold">&amp;</span> mask[i]
+    }
+    <span style="color:#000;font-weight:bold">return</span> out
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>注意这个方法是个修改的操作，它使用一个值语义API的风格。它使用一个 <code>IP</code> 值作为接收者并且依赖入参 <code>IPMask</code> 值，创建新的 <code>IP</code>  值并返回它的副本给调用者。该方法尊重您对引用类型使用值语义的事实。</p>
+<p>这与内置函数 <code>append</code> 一样。</p>
+<p><strong>Listing 4</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">var</span> data []<span style="color:#458;font-weight:bold">string</span>
+data = <span style="color:#0086b3">append</span>(data, <span style="color:#d14">&#34;string&#34;</span>)
+</code></pre></td></tr></table>
+</div>
+</div><p>函数 <code>append</code> 为些改变操作使用值语义。你传递一个切片值给 <code>append</code> ，然后修改它并返回一个新的切片值。</p>
+<p>unmarshaling 仍然是特殊的，它需要指针语义。</p>
+<p><strong>Listing 5</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> (ip <span style="color:#000;font-weight:bold">*</span>IP) <span style="color:#900;font-weight:bold">UnmarshalText</span>(text []<span style="color:#458;font-weight:bold">byte</span>) <span style="color:#458;font-weight:bold">error</span> {
+  	<span style="color:#000;font-weight:bold">if</span> <span style="color:#0086b3">len</span>(text) <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span> {
+  		<span style="color:#000;font-weight:bold">*</span>ip = <span style="color:#000;font-weight:bold">nil</span>
+  		<span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">nil</span>
+  	}
+  	s <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">string</span>(text)
+  	x <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">ParseIP</span>(s)
+  	<span style="color:#000;font-weight:bold">if</span> x <span style="color:#000;font-weight:bold">==</span> <span style="color:#000;font-weight:bold">nil</span> {
+  		<span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>ParseError{Type: <span style="color:#d14">&#34;IP address&#34;</span>, Text: s}
+  	}
+  	<span style="color:#000;font-weight:bold">*</span>ip = x
+  	<span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">nil</span>
+  }
+</code></pre></td></tr></table>
+</div>
+</div><p>方法 <code>UnmarshalText</code> 实现了 <code>encoding.TextUnmarshaler</code> 接口。如果不再使用指针语义，它无法工作。但是这也是正确的，因为共享会下通常是安全的。unmarshaling 的外面，如果将指针语义用于引用类型，则应引发一个标志。</p>
+<h3 id="用户定义类型">用户定义类型</h3>
+<p>这是你最需要做决定的地方。在你声明一个类型时，必须决定使用哪种语义。</p>
+<p>如果我给你下面的类型并告诉你为 <code>time</code> 包写一个API？</p>
+<p><strong>Listing 6</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">type</span> Time <span style="color:#000;font-weight:bold">struct</span> {
+    sec  <span style="color:#458;font-weight:bold">int64</span>
+    nsec <span style="color:#458;font-weight:bold">int32</span>
+    loc  <span style="color:#000;font-weight:bold">*</span>Location
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>将使用哪种语义？</p>
+<p>在 <code>Time</code> 包的工厂函数 <code>Now</code> 查看该类型的实现。</p>
+<p><strong>Listing 7</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Now</span>() Time {
+  	sec, nsec <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">now</span>()
+  	<span style="color:#000;font-weight:bold">return</span> Time{sec <span style="color:#000;font-weight:bold">+</span> unixToInternal, nsec, Local}
+  }
+</code></pre></td></tr></table>
+</div>
+</div><p>对于类型来说，工厂函数是最重要的函数之一，因为它告诉你执行哪种语义。函数 <code>Now</code> 清楚是说明使用了值语义。该函数创建一个 <code>Time</code> 类型的值，返回该值的副本给调用者。共享 <code>Time</code> 值没有必要，它也不需要放到堆上。</p>
+<p>同时，看下改变操作的 <code>Add</code> 方法。</p>
+<p><strong>Listing 8</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> (t Time) <span style="color:#900;font-weight:bold">Add</span>(d Duration) Time {
+  	t.sec <span style="color:#000;font-weight:bold">+=</span> <span style="color:#0086b3">int64</span>(d <span style="color:#000;font-weight:bold">/</span> <span style="color:#099">1e9</span>)
+  	nsec <span style="color:#000;font-weight:bold">:=</span> t.nsec <span style="color:#000;font-weight:bold">+</span> <span style="color:#0086b3">int32</span>(d<span style="color:#000;font-weight:bold">%</span><span style="color:#099">1e9</span>)
+  	<span style="color:#000;font-weight:bold">if</span> nsec <span style="color:#000;font-weight:bold">&gt;=</span> <span style="color:#099">1e9</span> {
+  		t.sec<span style="color:#000;font-weight:bold">++</span>
+  		nsec <span style="color:#000;font-weight:bold">-=</span> <span style="color:#099">1e9</span>
+  	} <span style="color:#000;font-weight:bold">else</span> <span style="color:#000;font-weight:bold">if</span> nsec &lt; <span style="color:#099">0</span> {
+  		t.sec<span style="color:#000;font-weight:bold">--</span>
+  		nsec <span style="color:#000;font-weight:bold">+=</span> <span style="color:#099">1e9</span>
+  	}
+  	t.nsec = nsec
+  	<span style="color:#000;font-weight:bold">return</span> t
+  }
+</code></pre></td></tr></table>
+</div>
+</div><p>你可以再次看到 <code>Add</code> 方法遵循了为该类型选择的语义。<code>Add</code> 方法使用值接收者操作它自己的 <code>Time</code> 值的副本，在该副本中，在进行调用时，使用 <code>Time</code> 值的副本。然后它改变了自己的副本并返回一个新的 <code>Time</code> 值的副给调用者。</p>
+<p>这里有一个接收 <code>Time</code> 值的函数：</p>
+<p><strong>Listing 9</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">div</span>(t Time, d Duration) (qmod2 <span style="color:#458;font-weight:bold">int</span>, r Duration) {
+</code></pre></td></tr></table>
+</div>
+</div><p>再次地，使用值语义接收一个<code>Time</code> 类型的值。对于 <code>Time</code> API，唯一使用指针语义是那些与 <code>Unmarshal</code> 相关的函数：</p>
+<p><strong>Listing 10</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> (t <span style="color:#000;font-weight:bold">*</span>Time) <span style="color:#900;font-weight:bold">UnmarshalBinary</span>(data []<span style="color:#458;font-weight:bold">byte</span>) <span style="color:#458;font-weight:bold">error</span> {
+<span style="color:#000;font-weight:bold">func</span> (t <span style="color:#000;font-weight:bold">*</span>Time) <span style="color:#900;font-weight:bold">GobDecode</span>(data []<span style="color:#458;font-weight:bold">byte</span>) <span style="color:#458;font-weight:bold">error</span> {
+<span style="color:#000;font-weight:bold">func</span> (t <span style="color:#000;font-weight:bold">*</span>Time) <span style="color:#900;font-weight:bold">UnmarshalJSON</span>(data []<span style="color:#458;font-weight:bold">byte</span>) <span style="color:#458;font-weight:bold">error</span> {
+<span style="color:#000;font-weight:bold">func</span> (t <span style="color:#000;font-weight:bold">*</span>Time) <span style="color:#900;font-weight:bold">UnmarshalText</span>(data []<span style="color:#458;font-weight:bold">byte</span>) <span style="color:#458;font-weight:bold">error</span> {
+</code></pre></td></tr></table>
+</div>
+</div><p>在大多数情况下，使用值语义的能力是有限的。在函数间复制数据是不正确或不合理的。数据更改需要限制为一个值并共享。这是指针语言需要被使用的时候。如果你不能100%确保使用拷贝它是正确的或是合理的，那么使用指针语义。</p>
+<p>看下<code>os</code> 包中 <code>File</code> 类型的工厂函数。</p>
+<p><strong>Listing 11</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Open</span>(name <span style="color:#458;font-weight:bold">string</span>) (file <span style="color:#000;font-weight:bold">*</span>File, err <span style="color:#458;font-weight:bold">error</span>) {
+    <span style="color:#000;font-weight:bold">return</span> <span style="color:#900;font-weight:bold">OpenFile</span>(name, O_RDONLY, <span style="color:#099">0</span>)
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>函数 <code>Open</code> 返回一个 <code>File</code> 类型的指针。这意味着你应该使用指针语义并一直共享 <code>File</code> 值。将语义从指针修改为值对程序来说是毁灭性的。当函数共享值，你应该假设你不能复制该指针所指向的值。如果这么做，结果将是不确定的。</p>
+<p>查看更多的API，您将看到指针语义的一致使用。</p>
+<p><strong>Listing 12</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> (f <span style="color:#000;font-weight:bold">*</span>File) <span style="color:#900;font-weight:bold">Chdir</span>() <span style="color:#458;font-weight:bold">error</span> {
+    <span style="color:#000;font-weight:bold">if</span> f <span style="color:#000;font-weight:bold">==</span> <span style="color:#000;font-weight:bold">nil</span> {
+        <span style="color:#000;font-weight:bold">return</span> ErrInvalid
+    }
+    <span style="color:#000;font-weight:bold">if</span> e <span style="color:#000;font-weight:bold">:=</span> syscall.<span style="color:#900;font-weight:bold">Fchdir</span>(f.fd); e <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+        <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>PathError{<span style="color:#d14">&#34;chdir&#34;</span>, f.name, e}
+    }
+    <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">nil</span>
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>即使 <code>File</code> 值不会修改，该 <code>Chdir</code> 方法也使用指针语义。方法必须尊重该类型的语义改变。</p>
+<p><strong>Listing 13</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">epipecheck</span>(file <span style="color:#000;font-weight:bold">*</span>File, e <span style="color:#458;font-weight:bold">error</span>) {
+    <span style="color:#000;font-weight:bold">if</span> e <span style="color:#000;font-weight:bold">==</span> syscall.EPIPE {
+        <span style="color:#000;font-weight:bold">if</span> atomic.<span style="color:#900;font-weight:bold">AddInt32</span>(<span style="color:#000;font-weight:bold">&amp;</span>file.nepipe, <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">&gt;=</span> <span style="color:#099">10</span> {
+            <span style="color:#900;font-weight:bold">sigpipe</span>()
+        }
+    } <span style="color:#000;font-weight:bold">else</span> {
+        atomic.<span style="color:#900;font-weight:bold">StoreInt32</span>(<span style="color:#000;font-weight:bold">&amp;</span>file.nepipe, <span style="color:#099">0</span>)
+    }
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>这里有个名为 <code>epiipecheck</code> 的函数，它使用指针接收 <code>File</code> 的值。再次地，注意为类型 <code>File</code> 的值使用指针语义的一致性。</p>
+<h2 id="结论">结论</h2>
+<p>我一直在代码审查中寻找对值/指针语义的一致使用。 它可以帮助您使代码随着时间的推移保持一致和可预测。 它还允许每个人维护清晰，一致的代码思维模型。 随着代码库和团队规模的扩大，对值/指针语义的一致使用变得更加重要。</p>
+<p>Go的惊人之处在于，指针语义和值语义之间的选择超出了接收者和函数参数的声明。 语言涵盖了从 <code>for range</code> 工作到接口语义，接口，函数值和 slice 的机制。 在以后的文章中，我将说明在语言的这些不同部分中如何显示值/指针语义。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/translate/Language-mechanics-on-memory-profiling/">内存剖析的语言机制</a></li>
+        
+        <li><a href="/post/translate/Language-mechanics-on-escape-analysis/">逃逸分析的语言机制</a></li>
+        
+        <li><a href="/post/translate/Language-mechanics-on-stacks-and-pointers/">栈和指针的语言机制</a></li>
+        
+        <li><a href="/post/2fa-auth-of-go/">2fa 双因素认证的Go实现</a></li>
+        
+        <li><a href="/post/Go-work-stealing-scheduler/">Go语言调度器的工作窃取</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/data'>data</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go的调度：第一部分-OS调度">Go的调度：第一部分-OS调度</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (11)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

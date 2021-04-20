@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>escape analysis on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/escape-analysis/</link>
+    <description>Recent content in escape analysis on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Mon, 19 Apr 2021 15:13:56 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/escape-analysis/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>逃逸分析的语言机制</title>
+      <link>https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/</link>
+      <pubDate>Mon, 19 Apr 2021 15:13:56 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/</guid>
+      <description>楔子 这是一个由四部分组成的系列文章的第二篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解。这篇文章主要关</description>
+    </item>
+    
+  </channel>
+</rss>

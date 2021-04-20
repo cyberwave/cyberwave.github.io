@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>逃逸分析的语言机制 | 听雪者的博客</title>
+    <meta property="og:title" content="逃逸分析的语言机制 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-04-19T15:13:56&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-04-19T15:13:56&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="逃逸分析的语言机制">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#楔子">楔子</a></li>
+    <li><a href="#介绍">介绍</a></li>
+    <li><a href="#堆">堆</a></li>
+    <li><a href="#共享栈">共享栈</a></li>
+    <li><a href="#逃逸机制">逃逸机制</a></li>
+    <li><a href="#可读性">可读性</a></li>
+    <li><a href="#编译器报告">编译器报告</a></li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">逃逸分析的语言机制</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年4月19日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="楔子">楔子</h2>
+<p>这是一个由四部分组成的系列文章的第二篇，该系列文章将提供对Go中指针，栈，堆，逃逸分析和值/指针语法背后设计和机制的理解。这篇文章主要关注堆栈和指针。</p>
+<p>四部分系列文章索引：</p>
+<ol>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-stacks-and-pointers.html">Language Mechanics On Stacks And Pointers</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-escape-analysis.html">Language Mechanics On Escape Analysis</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/language-mechanics-on-memory-profiling.html">Language Mechanics On Memory Profiling</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/design-philosophy-on-data-and-semantics.html">Design Philosophy On Data And Semantics</a></li>
+</ol>
+<h2 id="介绍">介绍</h2>
+<p>在第一篇文章中，通过使用一个示例（在协程的栈中共享一个值）讲解了基本的指针语义。我并没有向您展示当在栈中共享一个值会发生什么。为了理解这点，您需要学习另一个值可以生成的区块：堆。有了这些知识，你就可以开始学习“逃避分析”。</p>
+<p>逃逸分析是编译器用来确定程序创建的值的位置的过程。具体地，编译器执行表态代码分析，来决定是否可以将值放置在函数构造的栈帧上，或该值是否必须“逃逸”到堆上。在Go中，没有可以用关键字或函数可以用来直接告诉编译器做这个决定。只有通过您如何编写代码的约定才能决定这个决定。</p>
+<h2 id="堆">堆</h2>
+<p>堆是除了栈以外，用来存储值的第二个内存区域。堆不像栈一样是自我清理的，所以使用该内存有一个巨大的开销。基本上开销和垃圾回收（GC）相关联，它必须参与保持区块清理。当GC运行时，它将使用你可用CPU能力的25%，它潜在的创造微秒级的“世界停止”的延迟。拥有GC的好处是你不必须关心管理堆内存，这在历史上一直是复杂且容易出错的。</p>
+<p>堆上的值构成Go中的内存分配。这些分配给GC带来了压力，因为堆上不再被指针引用的每个值都需要删除。需要检查和删除的值越多，GC在每次运行时必须执行的工作就越多。因此，速度调整算法不断地工作，以平衡堆的大小和运行速度。</p>
+<h2 id="共享栈">共享栈</h2>
+<p>在Go中，不允许goroutine拥有指向另一个goroutine堆栈上内存的指针。这是因为协程的栈内存在增长和收缩时是可以被新的内存块替换的。如果运行时必须追踪指向另一个协程栈指针，那么管理起来就太多了，更新这些堆栈上的指针的“世界停止”延迟将是无法承受的</p>
+<p>这儿有个栈的例子，它由于增长被替换很多次。查看输出的第2到第6行。你将看到位于<code>main</code> 栈帧中 <code>string</code> 值的地址改变两次。</p>
+<p><a href="https://play.golang.org/p/pxn5u4EBSI">https://play.golang.org/p/pxn5u4EBSI</a></p>
+<h2 id="逃逸机制">逃逸机制</h2>
+<p>在任何时候，值在函数栈帧外被共享，它将被放到（或分配）椎上，逃逸分析算法的工作是找到这些情形并保持程序的完整性。完整性在于确保获取任何价值总是准确、一致和高效的。</p>
+<p>请看这个例子来学习逃逸分析背后的机制</p>
+<p><a href="https://play.golang.org/p/Y_VZxYteKO">https://play.golang.org/p/Y_VZxYteKO</a></p>
+<p><strong>Listing 1</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#099">02</span>
+<span style="color:#099">03</span> <span style="color:#000;font-weight:bold">type</span> user <span style="color:#000;font-weight:bold">struct</span> {
+<span style="color:#099">04</span>     name  <span style="color:#458;font-weight:bold">string</span>
+<span style="color:#099">05</span>     email <span style="color:#458;font-weight:bold">string</span>
+<span style="color:#099">06</span> }
+<span style="color:#099">07</span>
+<span style="color:#099">08</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+<span style="color:#099">09</span>     u1 <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">createUserV1</span>()
+<span style="color:#099">10</span>     u2 <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">createUserV2</span>()
+<span style="color:#099">11</span>
+<span style="color:#099">12</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;u1&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u1, <span style="color:#d14">&#34;u2&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u2)
+<span style="color:#099">13</span> }
+<span style="color:#099">14</span>
+<span style="color:#099">15</span> <span style="color:#998;font-style:italic">//go:noinline
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">16</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV1</span>() user {
+<span style="color:#099">17</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">18</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">19</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">20</span>     }
+<span style="color:#099">21</span>
+<span style="color:#099">22</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V1&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">23</span>     <span style="color:#000;font-weight:bold">return</span> u
+<span style="color:#099">24</span> }
+<span style="color:#099">25</span>
+<span style="color:#099">26</span> <span style="color:#998;font-style:italic">//go:noinline
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">27</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV2</span>() <span style="color:#000;font-weight:bold">*</span>user {
+<span style="color:#099">28</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">29</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">30</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">31</span>     }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V2&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p><em>我使用 <code>go:noinline</code> 来直接阻止编译器在 <code>main</code> 中内联这些代码。内联将会清除函数调用并复杂化这个示例。我将在下篇文章介绍内联的副作用</em></p>
+<p>在 Listing 1，你看程序有两个不同的函数，创建一个 <code>user</code> 值并将值返回给调用者。函数的第一个版本是返回中使用值语义。</p>
+<p><strong>Listing 2</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">16</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV1</span>() user {
+<span style="color:#099">17</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">18</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">19</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">20</span>     }
+<span style="color:#099">21</span>
+<span style="color:#099">22</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V1&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">23</span>     <span style="color:#000;font-weight:bold">return</span> u
+<span style="color:#099">24</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p><em>我说函数在返回中使用值语义，因为 <code>user</code> 值被该函数创建并拷贝然后传递给上层的调用栈。这意味着调用函数接收一个值本身的副本。</em></p>
+<p>可以在第17行到第20行看到 <code>user</code> 值被构造。然后在23行，<code>user</code> 副本被传递给上层调用栈并返回给调用者，在函数返回后，栈看起来如下：</p>
+<p><strong>Figure 1</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/81_figure1.png" />   
+    </p>
+<p>可以在表1中看到，<code>user</code> 的值在调用 <code>createUserV1</code> 之后，同时在两个帧上存在。在函数的版本2中，指针语义被使用并返回。</p>
+<p><strong>Listing 3</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">27</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV2</span>() <span style="color:#000;font-weight:bold">*</span>user {
+<span style="color:#099">28</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">29</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">30</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">31</span>     }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V2&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p><em>我说函数在返回时使用指针语义是因为 <code>user</code> 值被该函数创建并和调用栈共享。这意味着调用函数接收一个值地址的副本。</em></p>
+<p>您可以看到在第28行到第31行上使用相同的struct literal来构造 <code>user</code> 值，但在第34行上返回的结果不同。不是将 <code>user</code> 值的副本传递回调用堆栈，而是向上传<code>user</code>值的地址副本。基于此，您可能认为在调用之后堆栈看起来是这样的。</p>
+<p><strong>Figure 2</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/81_figure2.png" />   
+    </p>
+<p>如果您在表2所看到的是真正发生的，你将拥有一个完整性的问题。指针指向下面调用栈的内存不再有效。在 <code>main</code> 调用的另一个函数，被指向的内存将被再框住并再次初始化。</p>
+<p>这是逃逸分析开始保持完整性的地方。在这个例子中，编译器将决定在 <code>createUserV2</code>的栈帧中构造 <code>user</code> 值是不安全的，所以在椎上构造值作为替换。这将在第28行的构造中立即发生。</p>
+<h2 id="可读性">可读性</h2>
+<p>正如您在上一篇文章所了解的，函数在帧内部，通过指针可以直接访问内存，但是在它帧外部访问内存，需要间接访问。这意味着访问逃逸到堆上的值也必须通过指针间接访问。</p>
+<p>记住 <code>createUserV2</code> 的代码：</p>
+<p><strong>Listing 4</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">27</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV2</span>() <span style="color:#000;font-weight:bold">*</span>user {
+<span style="color:#099">28</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">29</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">30</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">31</span>     }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V2&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>在这段代码，语法隐藏了真正发生的事。在第 28 行声明的变量 <code>u</code> 代表一个类型为 <code>user</code> 的值。Go中的构造并不会告诉你值生存在内存的何处，所以直到第 34 行的 <code>return</code> 语句，你才知道值需要逃逸。这意味着，即使 <code>u</code> 代表类型为 <code>user</code> 的值，访问这个 <code>user</code> 值必须通过底层的指针。</p>
+<p>你可以看到在函数调用后栈情况：</p>
+<p><strong>Figure 3</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/81_figure3.png" />   
+    </p>
+<p>在函数 <code>createUserV2</code> 的栈帧上的变量 <code>u</code>，代表在堆上的值，而不是栈上。这意味着，使用 <code>u</code> 来访问变量，需要指针访问，而不是直接建议的直接访问语法。您可能会想，既然访问 <code>u</code> 所表示的值需要使用指针，那么为什么不将u设为指针呢？</p>
+<p><strong>Listing 5</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">27</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV2</span>() <span style="color:#000;font-weight:bold">*</span>user {
+<span style="color:#099">28</span>     u <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">&amp;</span>user{
+<span style="color:#099">29</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">30</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">31</span>     }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V2&#34;</span>, u)
+<span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>如果你这样做了，您将远离代码中的一个重要可读性增益。离开整个函数一秒钟，专注于<code>return</code>。</p>
+<p><strong>Listing 6</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>这个 <code>return</code> 告诉了你什么？它会说它返回一个 <code>u</code> 的副本，被向上传递到调用栈。然而，当使用 <code>&amp;</code> 操作符时，该 <code>return</code> 会告诉你什么？</p>
+<p><strong>Listing 7</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>感谢 <code>&amp;</code> 操作符，<code>return</code> 现在告诉你 <code>u</code> 被调用栈共享，它将逃逸到堆上。记住，指针是用于共享的，在阅读代码时，指针将替换 <code>u</code> 操作符的共享单词。这是非常强大的可读性方面，你不想失去的东西。</p>
+<p>这儿有另一个示例，它使用指针语义构造值，但有损可读性。</p>
+<p><strong>Listing 8</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">var</span> u <span style="color:#000;font-weight:bold">*</span>user
+<span style="color:#099">02</span> err <span style="color:#000;font-weight:bold">:=</span> json.<span style="color:#900;font-weight:bold">Unmarshal</span>([]<span style="color:#0086b3">byte</span>(r), <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">03</span> <span style="color:#000;font-weight:bold">return</span> u, err
+</code></pre></td></tr></table>
+</div>
+</div><p>为了代码的工作，你必须和第02行的 <code>json.Unmarshal</code> 调用共享指针变量。<code>json.Unmarshal</code> 调用将创建 <code>user</code> 值并指定他的地址到指针变量。<em><a href="https://play.golang.org/p/koI8EjpeIx">https://play.golang.org/p/koI8EjpeIx</a></em></p>
+<p>这段代码说了什么：</p>
+<blockquote>
+<p>01：创建一个 <code>user</code> 类型的指针并设置它的零值</p>
+<p>02：和 <code>json.Unmarshal</code> 函数共享 <code>u</code></p>
+<p>03：返回 <code>u</code> 的拷贝给调用者</p>
+</blockquote>
+<p>尚不清楚由 <code>json.Unmarshal</code>函数创建的 <code>u</code> 值是否正在与调用方共享</p>
+<p>当在构造的过程中使用值语义，可读性如何改变？</p>
+<p><strong>Listing 9</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">var</span> u user
+<span style="color:#099">02</span> err <span style="color:#000;font-weight:bold">:=</span> json.<span style="color:#900;font-weight:bold">Unmarshal</span>([]<span style="color:#0086b3">byte</span>(r), <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">03</span> <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>u, err
+</code></pre></td></tr></table>
+</div>
+</div><p>这段代码说了什么？</p>
+<blockquote>
+<p>01：创建一个 <code>user</code> 类型的变量并设置字的零值</p>
+<p>02：和函数 <code>json.Unmarshal</code> 共享 <code>u</code></p>
+<p>03：和调用者共享 <code>u</code></p>
+</blockquote>
+<p>一切清晰明了。第02行将调用栈中的 <code>user</code> 变量的值共享给 <code>json.Unmarshal</code>  ，第03行将调用栈中的 <code>user</code> 值共享给调用者。这个共享将导致 <code>user</code> 值逃逸。</p>
+<p>当构造值时使用值语义，并利用<code>&amp;</code>运算符的可读性以明确值的共享方式。</p>
+<h2 id="编译器报告">编译器报告</h2>
+<p>查看编译器的决定，可以告诉编译器提供一个报告。你所有需要做的是在 <code>go build</code> 调用时使用 <code>-gcflags</code> 来转换 <code>-m</code> 选项。</p>
+<p>您实际上可以使用4个级别的<code>-m</code>，但是超过2个级别的信息不胜枚举。 我将使用 <code>-m</code> 的2个级别。</p>
+<p><strong>Listing 10</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#a61717;background-color:#e3d2d2">$</span> <span style="color:#000;font-weight:bold">go</span> build <span style="color:#000;font-weight:bold">-</span>gcflags <span style="color:#d14">&#34;-m -m&#34;</span>
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">16</span>: cannot inline createUserV1: marked <span style="color:#000;font-weight:bold">go</span>:noinline
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">27</span>: cannot inline createUserV2: marked <span style="color:#000;font-weight:bold">go</span>:noinline
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">8</span>: cannot inline main: non<span style="color:#000;font-weight:bold">-</span>leaf function
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">22</span>: createUserV1 <span style="color:#000;font-weight:bold">&amp;</span>u does not escape
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>: <span style="color:#000;font-weight:bold">&amp;</span>u escapes to heap
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>: 	from <span style="color:#a61717;background-color:#e3d2d2">~</span><span style="color:#900;font-weight:bold">r0</span> (<span style="color:#000;font-weight:bold">return</span>) at .<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">31</span>: moved to heap: u
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">33</span>: createUserV2 <span style="color:#000;font-weight:bold">&amp;</span>u does not escape
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">12</span>: main <span style="color:#000;font-weight:bold">&amp;</span>u1 does not escape
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">12</span>: main <span style="color:#000;font-weight:bold">&amp;</span>u2 does not escape
+</code></pre></td></tr></table>
+</div>
+</div><p>你可以看编译器报告了逃逸决定。编译器说了什么？首先再看看引用的 <code>createUserV1</code> 和 <code>createUserV2</code> 函数</p>
+<p><strong>Listing 13</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">16</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV1</span>() user {
+<span style="color:#099">17</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">18</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">19</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">20</span>     }
+<span style="color:#099">21</span>
+<span style="color:#099">22</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V1&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">23</span>     <span style="color:#000;font-weight:bold">return</span> u
+<span style="color:#099">24</span> }
+
+<span style="color:#099">27</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV2</span>() <span style="color:#000;font-weight:bold">*</span>user {
+<span style="color:#099">28</span>     u <span style="color:#000;font-weight:bold">:=</span> user{
+<span style="color:#099">29</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">30</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">31</span>     }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V2&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>u)
+<span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>报告中的开始行</p>
+<p><strong>Listing 14</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">./main.go:22: createUserV1 &amp;u does not escape
+</code></pre></td></tr></table>
+</div>
+</div><p>它说函数在 <code>createUserV1</code> 调用 <code>println</code> 不会导致 <code>user</code> 值逃逸到堆上。这必须被检查，因为它和 <code>println</code> 函数共享。</p>
+<p>接下来看报告的这几行</p>
+<p><strong>Listing 15</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>: <span style="color:#000;font-weight:bold">&amp;</span>u escapes to heap
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>: 	from <span style="color:#a61717;background-color:#e3d2d2">~</span><span style="color:#900;font-weight:bold">r0</span> (<span style="color:#000;font-weight:bold">return</span>) at .<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">31</span>: moved to heap: u
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">33</span>: createUserV2 <span style="color:#000;font-weight:bold">&amp;</span>u does not escape
+</code></pre></td></tr></table>
+</div>
+</div><p>这些行说明了，值 <code>user</code> 和变量 <code>u</code> 关联，该变量是类型为 <code>user</code> 的名字，在第31行被关联，它逃逸是因为 34 行的 <code>return</code>。最后一行说和前面一样的内容，第33行的<code>println</code> 调用不会导致  <code>user</code> 逃逸。</p>
+<p>阅读这些报告可能会造成混淆，并且可能会略有变化，具体取决于所讨论的变量类型是基于命名类型还是文字类型。</p>
+<p>更改 <code>u</code> 为文字类型<code>*user</code>，而不是之前的命名类型 <code>user	</code>。</p>
+<p><strong>Listing 16</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">27</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">createUserV2</span>() <span style="color:#000;font-weight:bold">*</span>user {
+<span style="color:#099">28</span>     u <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">&amp;</span>user{
+<span style="color:#099">29</span>         name:  <span style="color:#d14">&#34;Bill&#34;</span>,
+<span style="color:#099">30</span>         email: <span style="color:#d14">&#34;bill@ardanlabs.com&#34;</span>,
+<span style="color:#099">31</span>     }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>     <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;V2&#34;</span>, u)
+<span style="color:#099">34</span>     <span style="color:#000;font-weight:bold">return</span> u
+<span style="color:#099">35</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>再次运行报告</p>
+<p><strong>Listing 17</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">30</span>: <span style="color:#000;font-weight:bold">&amp;</span>user literal escapes to heap
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">30</span>: 	from <span style="color:#900;font-weight:bold">u</span> (assigned) at .<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">28</span>
+.<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">30</span>: 	from <span style="color:#a61717;background-color:#e3d2d2">~</span><span style="color:#900;font-weight:bold">r0</span> (<span style="color:#000;font-weight:bold">return</span>) at .<span style="color:#000;font-weight:bold">/</span>main.<span style="color:#000;font-weight:bold">go</span>:<span style="color:#099">34</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>现在该报告说，由于第34行的 <code>return</code>，被 <code>u</code>变量引用的 <code>user</code> 值正在转义，该 <code>u</code>  变量是文本类型 <code>*user	</code>并在第28行分配的。</p>
+<h2 id="结论">结论</h2>
+<p>值的构造并不能决定其所在位置。 只有值共享的方式才能确定编译器将如何使用该值。 每当您在调用堆栈中共享一个值时，它都会逃逸。 还有一个导致值逃逸的其他原因，您将在下一篇文章中进行探讨。</p>
+<p>这些文章试图引导您找到为任何给定类型选择值或指针语义的准则。 每种语义都有收益和成本。 值语义将值保留在栈上，从而减轻了对GC的压力。 但是，必须存储，跟踪和维护任何给定值的不同副本。 指针语义将值放在堆上，这可能会对GC造成压力。 但是，它们是有效的，因为仅需要存储，跟踪和维护一个值。 关键是正确，一致且平衡地使用每种语义。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/translate/Language-mechanics-on-stacks-and-pointers/">栈和指针的语言机制</a></li>
+        
+        <li><a href="/post/2fa-auth-of-go/">2fa 双因素认证的Go实现</a></li>
+        
+        <li><a href="/post/Go-work-stealing-scheduler/">Go语言调度器的工作窃取</a></li>
+        
+        <li><a href="/post/Scheduling-In-Go-3-Concurrency/">Go的调度：第三部分 - 并发</a></li>
+        
+        <li><a href="/post/Scheduling-In-Go-2-GO-Scheduler/">Go的调度：第二部分 - Go调度器</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/escape-analysis'>escape analysis</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go的调度：第一部分-OS调度">Go的调度：第一部分-OS调度</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (11)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

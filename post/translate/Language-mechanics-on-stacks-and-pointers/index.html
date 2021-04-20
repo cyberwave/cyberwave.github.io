@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>栈和指针的语言机制 | 听雪者的博客</title>
+    <meta property="og:title" content="栈和指针的语言机制 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-04-19T09:49:05&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-04-19T09:49:05&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="栈和指针的语言机制">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#楔子">楔子</a></li>
+    <li><a href="#介绍">介绍</a></li>
+    <li><a href="#帧边界">帧边界</a></li>
+    <li><a href="#地址">地址</a></li>
+    <li><a href="#函数调用">函数调用</a></li>
+    <li><a href="#函数返回">函数返回</a></li>
+    <li><a href="#共享值">共享值</a></li>
+    <li><a href="#指针类型">指针类型</a></li>
+    <li><a href="#间接内存访问">间接内存访问</a></li>
+    <li><a href="#指针变量并不特殊">指针变量并不特殊</a></li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">栈和指针的语言机制</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年4月19日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="楔子">楔子</h2>
+<p>这是一个由四部分组成的系列文章的第一篇，该系列文章将提供对Go中指针、堆栈、堆、转义分析和值/指针语义背后的机制和设计的理解。这篇文章主要关注堆栈和指针。</p>
+<p>四部分系列文章索引：</p>
+<ol>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-stacks-and-pointers.html">Language Mechanics On Stacks And Pointers</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/05/language-mechanics-on-escape-analysis.html">Language Mechanics On Escape Analysis</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/language-mechanics-on-memory-profiling.html">Language Mechanics On Memory Profiling</a></li>
+<li><a href="https://ardanlabs.com/blog/2017/06/design-philosophy-on-data-and-semantics.html">Design Philosophy On Data And Semantics</a></li>
+</ol>
+<h2 id="介绍">介绍</h2>
+<p>我并不打扮粉饰它，指针很难理解。当使用失当，指针会产生严重错误，甚至是性能问题。在编写并发或多线程软件时，尤其如此。很多语言试图向程序员隐藏指针也就不足为怪了。然而，如果你使用Go写软件，就没有办法避免它们。对指针没深刻的理解，你就无法编写出整洁，简单和高效的代码。</p>
+<h2 id="帧边界">帧边界</h2>
+<p>函数在帧边界内的作用域中执行，而帧分别为每个函数提供独立的内存空间。每个帧允许函数操作它们自己的上下文，同时提供流程控制。函数通过帧指针，可以直接访问自己帧的内存，但是访问它自己帧外的内存需要非直接访问。函数访问它自己帧外的内存，则内存必须和函数共享。该机制和限制通过这些帧边界来建立，帧边界是需要首先学习和理解的。</p>
+<p>当一个函数被调用，两个帧之间分发生转换。代码会从正在调用的函数的帧转换到被调用函数的帧。如果在函数调用中需要数据，则数据必须从一个帧转换到另一个帧。在Go中在两个帧中传递数据通过“传值”来完成。</p>
+<p>通过“传值”来传递数据的优点是可读性。在函数调用中看到的值就是在另一端拷贝和接收的值。这就是为什么我将“传值”和所见即所得联系起来。因为你所看见的就是你得到的。所有这些允许你写代码时，不需要在两个函数中隐藏转移开销。这有助于维护一个好的心理模型，当转换发生时，每个函数调用将如何影响程序。</p>
+<p>看下这个小程序，函数调用通过“传值”来传递整型数据：</p>
+<p><strong>Listing 1</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#099">02</span>
+<span style="color:#099">03</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+<span style="color:#099">04</span>
+<span style="color:#099">05</span>    <span style="color:#998;font-style:italic">// Declare variable of type int with a value of 10.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">06</span>    count <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">10</span>
+<span style="color:#099">07</span>
+<span style="color:#099">08</span>    <span style="color:#998;font-style:italic">// Display the &#34;value of&#34; and &#34;address of&#34; count.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">09</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;count:\tValue Of[&#34;</span>, count, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>count, <span style="color:#d14">&#34;]&#34;</span>)
+<span style="color:#099">10</span>
+<span style="color:#099">11</span>    <span style="color:#998;font-style:italic">// Pass the &#34;value of&#34; the count.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">12</span>    <span style="color:#900;font-weight:bold">increment</span>(count)
+<span style="color:#099">13</span>
+<span style="color:#099">14</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;count:\tValue Of[&#34;</span>, count, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>count, <span style="color:#d14">&#34;]&#34;</span>)
+<span style="color:#099">15</span> }
+<span style="color:#099">16</span>
+<span style="color:#099">17</span> <span style="color:#998;font-style:italic">//go:noinline
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">18</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">increment</span>(inc <span style="color:#458;font-weight:bold">int</span>) {
+<span style="color:#099">19</span>
+<span style="color:#099">20</span>    <span style="color:#998;font-style:italic">// Increment the &#34;value of&#34; inc.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">21</span>    inc<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">22</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;inc:\tValue Of[&#34;</span>, inc, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>inc, <span style="color:#d14">&#34;]&#34;</span>)
+<span style="color:#099">23</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>当Go程序启动，运行时创建主协程来启动执行所有的初始化代码，包括 <code>main</code> 函数中的代码。一个协程就是一个被放置到操作系统线程上的执行路径，最终在某些核心上执行。例如在 1.8 版本，每个协程被分配初始 2048字节的连续内存块，这组成了它的栈空间。初始化栈大小在过去几年中发生了变化，这在未来可能会再次改变。</p>
+<p>栈是重要的，因为它为帧边界提供了物理内存空间，该帧边界提供给每个独立的函数。当主协程执行清单1中的 <code>main</code> 函数时，协程的栈（在非常高的级别上）如下所示：</p>
+<p><strong>Figure 1</strong></p>
+<p><!-- raw HTML omitted --></p>
+<p>在列表1中可以看到，栈部分已经在 <code>main</code> 函数外被”框“住。该部分被称为”栈帧“，这个帧表示 <code>main</code> 函数在栈上的边界。帧作为当函数被调用时要执行的代码的一部分被建立。也可以看内存中的 <code>count</code> 变量已经被放到 <code>main</code> 帧内部的地址 <code>0x10429fa4</code> 上。</p>
+<p>列表1还清楚地表明了另外一个有趣的点。活动帧以下的所有栈内存都无效，但是活动帧以上的内存是有效的。我需要弄清楚堆栈的有效部分和无效部分之间的界限。</p>
+<h2 id="地址">地址</h2>
+<p>变量的作用是将一个名字分配给指定内存位置，以提高代码的可读性并帮助你对正在处理的数据进行推理。如果你有一个变量，则在内存中就有相应的值，同时如果在内存中有一个值，那么它必须有一个地址。在第 09 行，<code>main</code> 函数调用内置函数 <code>println</code> 打印变量 <code>count</code> 的值和地址。</p>
+<p><strong>Listing 2</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">09</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;count:\tValue Of[&#34;</span>, count, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>count, <span style="color:#d14">&#34;]&#34;</span>)
+</code></pre></td></tr></table>
+</div>
+</div><p>使用与号 &amp; 操作符来苑骊个变量的内存位置并不新鲜，其他语言也使用该操作符。如果你在32位架构的机器上运行代码，第 09 行的输出应该与下面的输出很类似。</p>
+<p><strong>Listing 3</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">count:  Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">10</span> <span style="color:#000;font-weight:bold">]</span>  Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429fa4 <span style="color:#000;font-weight:bold">]</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="函数调用">函数调用</h2>
+<p>前往到12行，<code>main</code> 函数执行一个调用，执行 <code>increment</code> 函数。</p>
+<p><strong>Listing 4</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">12</span>    <span style="color:#900;font-weight:bold">increment</span>(count)
+</code></pre></td></tr></table>
+</div>
+</div><p>做出函数调用意味着协程需要框住栈上内存的新部分。然而，事情有点儿复杂。为了成功进行函数调用，在转移期间，期望数据通过跨帧边界传递并放到新的帧上。特别是在调用期间，整型值期望被拷贝并传递。可以查看第18行的 <code>increment</code> 函数的声明来了解这个需求。</p>
+<p><strong>Listing 5</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">18</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">increment</span>(inc <span style="color:#458;font-weight:bold">int</span>) {
+</code></pre></td></tr></table>
+</div>
+</div><p>如果再将看12行的调用 <code>increment</code> 函数，你可以看到代码传递 <code>count</code> 变量的值。该值会为 <code>increment</code> 函数而被拷贝，传递并放入到新的帧中。记住 <code>increment</code> 函数仅可以直接读写它自己帧中的内存，所以它需要 <code>inc</code> 变量来接收，存储和访问传递给他的 <code>count</code> 变量的拷贝。</p>
+<p>在 <code>increment</code> 函数被执行之前，协程的栈如下所示：</p>
+<p><strong>Figure 2</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/80_figure2.png" />   
+    </p>
+<p>可以看到现在栈有两个帧，一个是 <code>main</code> 的，而另下面的另一个是 <code>increment</code> 的。在 <code>increment</code> 帧的内部，可以看到 <code>inc</code> 变量和它包含的值 <code>10</code>，是在函数调用期间被拷贝到传递过来的。变量 <code>inc</code> 的地址是 <code>0x10429f98</code> ，在内存中位于下面，因为帧中的栈是向下的，这仅仅是实现细节，并不意味着什么。重要的是协程获取 <code>main</code> 帧中变量 <code>count</code> 的值，并使用 <code>inc</code> 变量将值的副本保存到在 <code>increment</code> 的帧中。</p>
+<p>函数 <code>increment</code> 的其余代码增加并打印<code>inc</code> 变量的值和地址。</p>
+<p><strong>Listing 6</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">21</span>    inc<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">22</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;inc:\tValue Of[&#34;</span>, inc, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>inc, <span style="color:#d14">&#34;]&#34;</span>)
+</code></pre></td></tr></table>
+</div>
+</div><p>第22行的输出如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">inc:    Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">11</span> <span style="color:#000;font-weight:bold">]</span>  Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429f98 <span style="color:#000;font-weight:bold">]</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>这就是执行这些代码行后堆栈的样子：</p>
+<p><strong>Figure 3</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/80_figure3.png" />   
+    </p>
+<p>在 21 和 22 行执行之后，<code>increment</code> 函数返回，并将控制返回给 <code>main</code> 函数。然后 <code>main</code> 函数在第 14 行再次打印本地 <code>count</code> 变量的值和地址</p>
+<p><strong>Listing 8</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">14</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;count:\tValue Of[&#34;</span>,count, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>count, <span style="color:#d14">&#34;]&#34;</span>)
+</code></pre></td></tr></table>
+</div>
+</div><p>程序的完整输出如下：</p>
+<p><strong>Listing 9</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">count:  Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">10</span> <span style="color:#000;font-weight:bold">]</span>  Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429fa4 <span style="color:#000;font-weight:bold">]</span>
+inc:    Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">11</span> <span style="color:#000;font-weight:bold">]</span>  Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429f98 <span style="color:#000;font-weight:bold">]</span>
+count:  Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">10</span> <span style="color:#000;font-weight:bold">]</span>  Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429fa4 <span style="color:#000;font-weight:bold">]</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>函数 <code>main</code> 帧中的 <code>count</code> 的值在调用 <code>increment</code> 前后是一样的。</p>
+<h2 id="函数返回">函数返回</h2>
+<p>当函数返回，控制返回给函数调用方，栈内存实际发生了什么？简单的答案是：没有什么东西。下面是 <code>increment</code> 函数返回后，栈实际上内容：</p>
+<p><strong>Figure 4</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/80_figure4.png" />   
+    </p>
+<p>除了与函数 <code>increment</code> 关联的帧现在被认为是无效内存，栈看起来和Figure 3完成一样。这是因为 <code>main</code> 的帧现在是活跃状态。为函数 <code>increment</code> 而框住的内存现在是未修改的。</p>
+<p>清理返回函数的内存被认为是浪费时间，因为你不知道该内存是否被再次需要。所以内存还保持原样。在每个函数调用期间，帧被使用，此时该帧的栈内存被清理。这通过初始化任何放到帧中的值来实现。因为所有的值都至少被初始化为它们自己的零值，栈在每次函数调用时都适当的清理他们自身。</p>
+<h2 id="共享值">共享值</h2>
+<p>对于函数 <code>increment</code> ，如果直接操作存在于 <code>main</code> 帧中的 <code>count</code> 变量是重要的，该如何办？这就是指针的用途。指针有一个作用，和函数共享值，所以函数可以读写这些值，即使这些值并不直接存在于他们自身的帧中。</p>
+<p>如何”共享“没有从你的口中说出，你不必使用指针。当学习指针，最重要的是使用清晰的词汇表，而不是操作或语法。所以请记住，指针是为了共享的，当您阅读代码时，使用 <code>&amp;</code> 操作符替换单词”共享“。</p>
+<h2 id="指针类型">指针类型</h2>
+<p>对于您或语言本身声明的每个类型，您都可以免费获得一个完整的指针类型，用于共享。已经存在名为 <code>int</code> 的内置类型，因此存在名为 *int 的完整的指针类型。如果声明名为 <code>User</code> 的类型，则可以免费获得名为 *User 的指针类型。</p>
+<p>所有的指针类型有同样的两个特殊。首先，他们以字符 <code>*</code> 作为开始。其实，他们拥有相同的内存大小和表示形式，即一个4或8字节大小的地址。在32位架构上，指针需要4字节的内存，在64位架构上，他们需要8字节大小的内存。</p>
+<p><em>在规范中，指针类型被认为是类型文本，这意味着它们是由现有类型组成的未命名类型。</em></p>
+<h2 id="间接内存访问">间接内存访问</h2>
+<p>看下这个小程序，它展示通过传值的等式传递函数调用一个地址。这将和 <code>increment</code> 函数共享位于 <code>main</code> 栈帧变量 <code>count</code> 的值：</p>
+<p><strong>Listing 10</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#099">02</span>
+<span style="color:#099">03</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+<span style="color:#099">04</span>
+<span style="color:#099">05</span>    <span style="color:#998;font-style:italic">// Declare variable of type int with a value of 10.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">06</span>    count <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">10</span>
+<span style="color:#099">07</span>
+<span style="color:#099">08</span>    <span style="color:#998;font-style:italic">// Display the &#34;value of&#34; and &#34;address of&#34; count.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">09</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;count:\tValue Of[&#34;</span>, count, <span style="color:#d14">&#34;]\t\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>count, <span style="color:#d14">&#34;]&#34;</span>)
+<span style="color:#099">10</span>
+<span style="color:#099">11</span>    <span style="color:#998;font-style:italic">// Pass the &#34;address of&#34; count.
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">12</span>    <span style="color:#900;font-weight:bold">increment</span>(<span style="color:#000;font-weight:bold">&amp;</span>count)
+<span style="color:#099">13</span>
+<span style="color:#099">14</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;count:\tValue Of[&#34;</span>, count, <span style="color:#d14">&#34;]\t\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>count, <span style="color:#d14">&#34;]&#34;</span>)
+<span style="color:#099">15</span> }
+<span style="color:#099">16</span>
+<span style="color:#099">17</span> <span style="color:#998;font-style:italic">//go:noinline
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">18</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">increment</span>(inc <span style="color:#000;font-weight:bold">*</span><span style="color:#458;font-weight:bold">int</span>) {
+<span style="color:#099">19</span>
+<span style="color:#099">20</span>    <span style="color:#998;font-style:italic">// Increment the &#34;value of&#34; count that the &#34;pointer points to&#34;. (dereferencing)
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">21</span>    <span style="color:#000;font-weight:bold">*</span>inc<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">22</span>    <span style="color:#0086b3">println</span>(<span style="color:#d14">&#34;inc:\tValue Of[&#34;</span>, inc, <span style="color:#d14">&#34;]\tAddr Of[&#34;</span>, <span style="color:#000;font-weight:bold">&amp;</span>inc, <span style="color:#d14">&#34;]\tValue Points To[&#34;</span>, <span style="color:#000;font-weight:bold">*</span>inc, <span style="color:#d14">&#34;]&#34;</span>)
+<span style="color:#099">23</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>这里和源程序相比，有三个有意思的改动。第 12 行是第一个修改：</p>
+<p><strong>Listing 11</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">12</span>    <span style="color:#900;font-weight:bold">increment</span>(<span style="color:#000;font-weight:bold">&amp;</span>count)
+</code></pre></td></tr></table>
+</div>
+</div><p>此时在第12行，代码不是拷贝和传递 <code>count</code> 的值，而是使用 <code>count</code> 的地址代替。现在可以说，我和 <code>increment</code> 函数”共享“ <code>count</code> 变量。这是 <code>&amp;</code> 操作符语言，”共享“。</p>
+<p>理解这仍然是”值传递“，唯一不同的是，你传递的值是一个地址，而不是整型。地址也是值；这是在函数调用时，将被跨帧边界拷贝和传递的地方。</p>
+<p>由于地址的值被拷贝和传递，在 <code>increment</code> 的帧中需要一个变量来接收和存储这个基于地址的整型。这就是18行要讲的声明整型指针变量。</p>
+<p><strong>Listing 12</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">18</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">increment</span>(inc <span style="color:#000;font-weight:bold">*</span><span style="color:#458;font-weight:bold">int</span>) {
+</code></pre></td></tr></table>
+</div>
+</div><p>如果你传递 <code>User</code> 值的地址，则该变量需要被声明为 <code>*User</code>。即使所有的指针变量存储地址的值，但他们不能传递任意地址，仅能传递与指针类型关联的地址。这是重要的，原因是共享一个值是因为接收函数需要执行读写该值。你需要值的类型信息以读写它。编译器需要确保只有值与正确指针类型才可以在函数中共享。</p>
+<p>下面是在函数调用 <code>increment</code> 之后的栈内容：</p>
+<p><strong>Figure 5</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/80_figure5.png" />   
+    </p>
+<p>可以在 figure 5 中看到，当使用地址作为值执行“传值”时栈的样子。<code>increment</code> 函数框架内的指针变量现在指向 <code>count</code>变量，该变量位于 <code>main</code> 函数框架内。</p>
+<p>现在使用指针变量，函数可以间接读，修改，写位于 <code>main</code> 帧内的 <code>count</code> 变量。</p>
+<p><strong>Listing 13</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">21</span>    <span style="color:#000;font-weight:bold">*</span>inc<span style="color:#000;font-weight:bold">++</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>此时，字符 <code>*</code> 充当运算符并作用于指针变量。使用 <code>*</code> 作为操作符，意味着”指针指向的值“。指针允许间接内存访问它使用的函数帧以外变量。有时该间接读或写被称为指针的解引用。函数 <code>increment</code> 的帧内必须有可以直接读取的指针变量来行使间接访问。</p>
+<p>现在在 表6 可以看到在 21 行的执行之后的栈情况</p>
+<p><strong>Figure 6</strong></p>
+<p>
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/80_figure6.png" />   
+    </p>
+<p>下面是最终的输出：</p>
+<p><strong>Listing 14</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">count:  Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">10</span> <span style="color:#000;font-weight:bold">]</span>   	   	Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429fa4 <span style="color:#000;font-weight:bold">]</span>
+inc:    Value Of<span style="color:#000;font-weight:bold">[</span> 0x10429fa4 <span style="color:#000;font-weight:bold">]</span>  	Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429f98 <span style="color:#000;font-weight:bold">]</span>   Value Points To<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">11</span> <span style="color:#000;font-weight:bold">]</span>
+count:  Value Of<span style="color:#000;font-weight:bold">[</span> <span style="color:#099">11</span> <span style="color:#000;font-weight:bold">]</span>   	   	Addr Of<span style="color:#000;font-weight:bold">[</span> 0x10429fa4 <span style="color:#000;font-weight:bold">]</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>可以看到指针变量 <code>inc</code> 的值和变量 <code>count</code> 的值是一样的。这设置了共享关系，允许间接访问帧外的内存进行替换。当通过 <code>increment</code> 函数的指针进行了写操作，当控制返回时，在 <code>main</code> 函数中是可见的。</p>
+<h2 id="指针变量并不特殊">指针变量并不特殊</h2>
+<p>指针变量并不特殊，因为他们和其他变量一样也是变量。他们朋内存指定并持有一个值。碰巧的是所有的指针变量，除了他们指向的类型的值，通常是同样的大小和表现。可以造成困惑的是 <code>*</code> 字符作在代码中为操作符，被用来声明指针类型。如果你辨别类型声明和指针操作，这将有助于减少困惑。</p>
+<h2 id="结论">结论</h2>
+<p>这篇文章描述了指针背后的目的，和Go中栈和指针的机制。这是理解机制，设计哲学和指导持久性和可读性代码的第一步。</p>
+<p>下面是总结：</p>
+<ul>
+<li>函数在帧边界作用域中执行，域边界为每个对应的函数提供独立的内存空间。</li>
+<li>当函数被调用，在两个帧中有一个转移和替换。</li>
+<li>通过”传值“来传递数据的一个好处是可读性。</li>
+<li>栈是重要的，因为他为每个独立的函数的帧边界提供物理内存空间。</li>
+<li>所以活动帧下面的下面是无效和，而活动帧上面的内存是有效的。</li>
+<li>进行函数调用意味着goroutine需要在堆栈上构建一个新的内存段。</li>
+<li>在每个函数调用期间，当使用了帧，帧的栈内存被清理。</li>
+<li>指针有一个目的，和函数共享值以便函数可以直接读写值，即使值不是直接存在它自己的帧中。</li>
+<li>通过人或语言本身声明的每个类型，将免费获得一个可以直接使用的完整的指针类型。</li>
+<li>指针变量允许间接访问它使用函数帧外的内存</li>
+<li>指针变量并不特殊，因为他们和其他变量一样也是变量。他们拥有指定的内存并持有变量。</li>
+</ul>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/2fa-auth-of-go/">2fa 双因素认证的Go实现</a></li>
+        
+        <li><a href="/post/Go-work-stealing-scheduler/">Go语言调度器的工作窃取</a></li>
+        
+        <li><a href="/post/Scheduling-In-Go-3-Concurrency/">Go的调度：第三部分 - 并发</a></li>
+        
+        <li><a href="/post/Scheduling-In-Go-2-GO-Scheduler/">Go的调度：第二部分 - Go调度器</a></li>
+        
+        <li><a href="/post/bad-go-of-return-pointer/">Go返回指针的坏处</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/stack'>stack</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-2-GO-Scheduler/" title="Go的调度：第二部分 - Go调度器">Go的调度：第二部分 - Go调度器</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/bad-go-of-return-pointer/" title="Go返回指针的坏处">Go返回指针的坏处</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-1-OS-Scheduler/" title="Go的调度：第一部分-OS调度">Go的调度：第一部分-OS调度</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (11)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
