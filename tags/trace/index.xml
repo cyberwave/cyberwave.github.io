@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>trace on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/trace/</link>
+    <description>Recent content in trace on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Wed, 21 Apr 2021 11:33:56 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/trace/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Go语言的垃圾回收 第三部分 GC速度</title>
+      <link>https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/</link>
+      <pubDate>Wed, 21 Apr 2021 11:33:56 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/</guid>
+      <description>[原文] Garbage Collection In Go : Part III - GC Pacing 锲子 这是由三部分构成的系列中的第二篇，它将提供Go语言垃圾回收背后的语义和机制的理解。这篇文章重点介绍GC如何自</description>
+    </item>
+    
+    <item>
+      <title>Go语言的垃圾回收：第一部分 GC追踪</title>
+      <link>https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/</link>
+      <pubDate>Wed, 21 Apr 2021 09:58:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/</guid>
+      <description>[原文] Garbage Collection In Go : Part II - GC Traces 锲子 这是由三部分构成的系列中的第二篇，它将提供Go语言垃圾回收背后的语义和机制的理解。这篇文章重点介绍如何生成G</description>
+    </item>
+    
+  </channel>
+</rss>

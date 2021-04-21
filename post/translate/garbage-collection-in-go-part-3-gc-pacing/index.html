@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Go语言的垃圾回收 第三部分 GC速度 | 听雪者的博客</title>
+    <meta property="og:title" content="Go语言的垃圾回收 第三部分 GC速度 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-04-21T11:33:56&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-04-21T11:33:56&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Go语言的垃圾回收 第三部分 GC速度">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#锲子">锲子</a></li>
+    <li><a href="#并发示例代码">并发示例代码</a></li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go语言的垃圾回收 第三部分 GC速度</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年4月21日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>[原文] <a href="https://www.ardanlabs.com/blog/2019/07/garbage-collection-in-go-part3-gcpacing.html">Garbage Collection In Go : Part III - GC Pacing</a></p>
+<h2 id="锲子">锲子</h2>
+<p>这是由三部分构成的系列中的第二篇，它将提供Go语言垃圾回收背后的语义和机制的理解。这篇文章重点介绍GC如何自我调整。</p>
+<p>三部分系列文章的索引：</p>
+<ol>
+<li><a href="https://www.ardanlabs.com/blog/2018/12/garbage-collection-in-go-part1-semantics.html">Garbage Collection In Go : Part I - Semantics</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2019/05/garbage-collection-in-go-part2-gctraces.html">Garbage Collection In Go : Part II - GC Traces</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2019/07/garbage-collection-in-go-part3-gcpacing.html">Garbage Collection In Go : Part III - GC Pacing</a></li>
+</ol>
+<p>介绍</p>
+<p>在第二篇文章，我向您展示了垃圾收集器的行为，以及如何使用工具查看收集器注入到你运行的应用系统的延迟。我带领您运行一个真正的web应用程序并向您展示了如何生成GC追踪文件和应用配置文件。然后我向您展示了如何分析这些工具的输出，所以你可以找到提升您应用程序性能的方法。</p>
+<p>文章最后的结论和第一篇的一样：如果你减少堆压力，您将减少延迟开销，进而提升应用程序的性能。同情垃圾收集器的最佳策略是每个工作运行时减少分配的数目和数量。在这篇文章中，我将展示 pacing 算法如何能够随着时间的推移确定给定工作负载的最佳速度。</p>
+<h2 id="并发示例代码">并发示例代码</h2>
+<p>我将使用位于这个链接的代码</p>
+<p><a href="https://github.com/ardanlabs/gotraining/tree/master/topics/go/profiling/trace">https://github.com/ardanlabs/gotraining/tree/master/topics/go/profiling/trace</a></p>
+<p>该程序确定在RSS新闻提要文档的集合中可以找到特定主题的频率。 跟踪程序包含不同版本的查找算法，以测试不同的并发模式。 我将专注于<code>freq</code>，<code>freqConcurrent</code>和<code>freqNumCPU</code>版本的算法。</p>
+<p><em>注意：我在拥有12个硬件线程的Intel i9处理器的 Macbook Pro 机器上使用go1.12.7运行代码。在不同的架构，操作系统和Go版本上会看到不同的结果。这篇文章的核心应该是一样的。</em></p>
+<p>我首先使用 <code>freq</code> 版本作为开始。它代表的是一个非并发顺序版本的程序。这将为随后的并发版本提供一个基线。</p>
+<p><strong>Listing 1</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">freq</span>(topic <span style="color:#458;font-weight:bold">string</span>, docs []<span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">02</span>     <span style="color:#000;font-weight:bold">var</span> found <span style="color:#458;font-weight:bold">int</span>
+<span style="color:#099">03</span>
+<span style="color:#099">04</span>     <span style="color:#000;font-weight:bold">for</span> _, doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> docs {
+<span style="color:#099">05</span>         file <span style="color:#000;font-weight:bold">:=</span> fmt.<span style="color:#900;font-weight:bold">Sprintf</span>(<span style="color:#d14">&#34;%s.xml&#34;</span>, doc[:<span style="color:#099">8</span>])
+<span style="color:#099">06</span>         f, err <span style="color:#000;font-weight:bold">:=</span> os.<span style="color:#900;font-weight:bold">OpenFile</span>(file, os.O_RDONLY, <span style="color:#099">0</span>)
+<span style="color:#099">07</span>         <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">08</span>             log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Opening Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">09</span>             <span style="color:#000;font-weight:bold">return</span> <span style="color:#099">0</span>
+<span style="color:#099">10</span>         }
+<span style="color:#099">11</span>         <span style="color:#000;font-weight:bold">defer</span> f.<span style="color:#900;font-weight:bold">Close</span>()
+<span style="color:#099">12</span>
+<span style="color:#099">13</span>         data, err <span style="color:#000;font-weight:bold">:=</span> ioutil.<span style="color:#900;font-weight:bold">ReadAll</span>(f)
+<span style="color:#099">14</span>         <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">15</span>             log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Reading Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">16</span>             <span style="color:#000;font-weight:bold">return</span> <span style="color:#099">0</span>
+<span style="color:#099">17</span>         }
+<span style="color:#099">18</span>
+<span style="color:#099">19</span>         <span style="color:#000;font-weight:bold">var</span> d document
+<span style="color:#099">20</span>         <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">:=</span> xml.<span style="color:#900;font-weight:bold">Unmarshal</span>(data, <span style="color:#000;font-weight:bold">&amp;</span>d); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">21</span>             log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Decoding Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">22</span>             <span style="color:#000;font-weight:bold">return</span> <span style="color:#099">0</span>
+<span style="color:#099">23</span>         }
+<span style="color:#099">24</span>
+<span style="color:#099">25</span>         <span style="color:#000;font-weight:bold">for</span> _, item <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> d.Channel.Items {
+<span style="color:#099">26</span>             <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Title, topic) {
+<span style="color:#099">27</span>                 found<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">28</span>                 <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">29</span>             }
+<span style="color:#099">30</span>
+<span style="color:#099">31</span>             <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Description, topic) {
+<span style="color:#099">32</span>                 found<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">33</span>             }
+<span style="color:#099">34</span>        }
+<span style="color:#099">35</span>     }
+<span style="color:#099">36</span>
+<span style="color:#099">37</span>     <span style="color:#000;font-weight:bold">return</span> found
+<span style="color:#099">38</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>清单1显示了 <code>freq</code> 函数。此顺序版本涵盖了文件名的集合，并执行四个操作：打开，读取，解码和搜索。 它对每个文件一次执行一次这样的操作。</p>
+<p>当在自己机器上使用这个版本的 <code>freq</code> ，获得的输出如下：</p>
+<p><strong>Listing 2</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ <span style="color:#0086b3">time</span> ./trace
+2019/07/02 13:40:49 Searching <span style="color:#099">4000</span> files, found president <span style="color:#099">28000</span> times.
+./trace  2.54s user 0.12s system 105% cpu 2.512 total
+</code></pre></td></tr></table>
+</div>
+</div><p>通过 time 的输出，可以看到，这个程序使用大约 2.5 秒来处理 4000 个文件。查看花费在垃圾回收上的时间百分比是 nice 的事。你可以通过看程序的追踪来做这件事。由于这是一个启动和完成的程序，因此可以使用跟踪包来生成跟踪。</p>
+<p><strong>Listing 3</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">03</span> <span style="color:#000;font-weight:bold">import</span> <span style="color:#d14">&#34;runtime/trace&#34;</span>
+<span style="color:#099">04</span>
+<span style="color:#099">05</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+<span style="color:#099">06</span>     trace.<span style="color:#900;font-weight:bold">Start</span>(os.Stdout)
+<span style="color:#099">07</span>     <span style="color:#000;font-weight:bold">defer</span> trace.<span style="color:#900;font-weight:bold">Stop</span>()
+</code></pre></td></tr></table>
+</div>
+</div><p>清单3显示了你需要从程序中生成追踪的代码。在导入来自于标识库 <code>runtime</code> 目录的 <code>trace</code> 包之后，调用 <code>trace.Start</code> 和 <code>trace.Stop</code> 。将跟踪输出定向到 <code>os.Stdout</code> 简化了代码。</p>
+<p>使用此代码后，现在您可以重新生成并运行该程序。不要忘记将 <code>stdout</code> 重定向到文件</p>
+<p><strong>Listing 4</strong></p>
+<pre><code class="language-command" data-lang="command">$ go build
+$ time ./trace &gt; t.out
+Searching 4000 files, found president 28000 times.
+./trace &gt; t.out  2.67s user 0.13s system 106% cpu 2.626 total
+</code></pre><p>100多毫秒被添加到运行时，但是这是预期的。追踪捕获每次函数调用前后的微秒数重要的是，现在有一个名为 <code>t.out</code> 的文件，其中包含跟踪数据。</p>
+<p>为了看追踪，追踪数据需要通过追踪工具被运行</p>
+<p><strong>Listing 5</strong></p>
+<pre><code class="language-command" data-lang="command">$ go tool trace t.out
+</code></pre><p>运行该命令，然后大下面的屏幕中打开Chrome浏览器。</p>
+<p><em>注意：追踪工具使用 Chrome 浏览器的内置的工具。此工具仅适用于 Chrome 浏览器。</em></p>
+<p><strong>Figure 1</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure1.png" />   
+    </p>
+<p>图1显示了当追踪工具启动时，呈现的9个链接。现在重要的链接是第一个，它叫 <code>View trace</code> 。当你选择了这个链接，你会看到类似下面的内容。</p>
+<p><strong>Figure 2</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure2.png?v2" />   
+    </p>
+<p>图2显示了从程序运行在我的机器上的整个追踪窗口。对于本文，我将聚焦与垃圾回收有关的部分。这是标签为 <code>Heap</code> 的第二部分和标签为 <code>GC</code> 的第四部分。</p>
+<p><strong>Figure 3</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure3.png" />   
+    </p>
+<p>图3详细显示了跟踪的前200毫秒。 将注意力集中在<code>Heap</code>（绿色和橙色区域）和 <code>GC</code>（底部的蓝线）上。 <code>Heap</code> 部分向您展示了两件事。 橙色区域是在任何给定的微秒内堆上当前的使用空间。 绿色是将触发下一个集合的堆中正在使用的空间量。 这就是为什么每次橙色区域到达绿色区域的顶部都会进行垃圾收集的原因。 蓝线代表垃圾收集。</p>
+<p>在此版本的程序中，在整个程序运行期间，堆中正在使用的内存保持在〜4 meg。 要查看有关发生的所有单个垃圾收集的统计信息，请使用选择工具并在所有蓝线周围绘制一个框。</p>
+<p><strong>Figure 4</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure4.png" />   
+    </p>
+<p>图4显示了如何使用箭头工具在蓝线周围画一个蓝框。你想在每个行上画框。框内的数字表示从图表中选择的项目所消耗的时间。 在这种情况下，选择接近316毫秒（ms，μs，ns）来生成此图像。 选中所有蓝线后，将提供以下统计信息</p>
+<p><strong>Figure 5</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure5.png" />   
+    </p>
+<p>图5显示了图中的所有蓝线都在15.911毫秒标记到2.596秒标记之间。 有232个垃圾收集代表了64.524毫秒的时间，平均收集时间为287.121微秒。 知道程序运行需要2.626秒，这意味着垃圾回收仅占总运行时间的2％。 从本质上讲，垃圾收集器对于运行该程序来说是微不足道的成本。</p>
+<p>有了基线，可以使用并发算法来执行相同的工作，从而希望加快程序运行速度。</p>
+<p><strong>Listing 6</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">freqConcurrent</span>(topic <span style="color:#458;font-weight:bold">string</span>, docs []<span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">02</span>     <span style="color:#000;font-weight:bold">var</span> found <span style="color:#458;font-weight:bold">int32</span>
+<span style="color:#099">03</span>
+<span style="color:#099">04</span>     g <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(docs)
+<span style="color:#099">05</span>     <span style="color:#000;font-weight:bold">var</span> wg sync.WaitGroup
+<span style="color:#099">06</span>     wg.<span style="color:#900;font-weight:bold">Add</span>(g)
+<span style="color:#099">07</span>
+<span style="color:#099">08</span>     <span style="color:#000;font-weight:bold">for</span> _, doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> docs {
+<span style="color:#099">09</span>         <span style="color:#000;font-weight:bold">go</span> <span style="color:#000;font-weight:bold">func</span>(doc <span style="color:#458;font-weight:bold">string</span>) {
+<span style="color:#099">10</span>             <span style="color:#000;font-weight:bold">var</span> lFound <span style="color:#458;font-weight:bold">int32</span>
+<span style="color:#099">11</span>             <span style="color:#000;font-weight:bold">defer</span> <span style="color:#000;font-weight:bold">func</span>() {
+<span style="color:#099">12</span>                 atomic.<span style="color:#900;font-weight:bold">AddInt32</span>(<span style="color:#000;font-weight:bold">&amp;</span>found, lFound)
+<span style="color:#099">13</span>                 wg.<span style="color:#900;font-weight:bold">Done</span>()
+<span style="color:#099">14</span>             }()
+<span style="color:#099">15</span>
+<span style="color:#099">16</span>             file <span style="color:#000;font-weight:bold">:=</span> fmt.<span style="color:#900;font-weight:bold">Sprintf</span>(<span style="color:#d14">&#34;%s.xml&#34;</span>, doc[:<span style="color:#099">8</span>])
+<span style="color:#099">17</span>             f, err <span style="color:#000;font-weight:bold">:=</span> os.<span style="color:#900;font-weight:bold">OpenFile</span>(file, os.O_RDONLY, <span style="color:#099">0</span>)
+<span style="color:#099">18</span>             <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">19</span>                 log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Opening Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">20</span>                 <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">21</span>             }
+<span style="color:#099">22</span>             <span style="color:#000;font-weight:bold">defer</span> f.<span style="color:#900;font-weight:bold">Close</span>()
+<span style="color:#099">23</span>
+<span style="color:#099">24</span>             data, err <span style="color:#000;font-weight:bold">:=</span> ioutil.<span style="color:#900;font-weight:bold">ReadAll</span>(f)
+<span style="color:#099">25</span>             <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">26</span>                 log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Reading Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">27</span>                 <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">28</span>             }
+<span style="color:#099">29</span>
+<span style="color:#099">30</span>             <span style="color:#000;font-weight:bold">var</span> d document
+<span style="color:#099">31</span>             <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">:=</span> xml.<span style="color:#900;font-weight:bold">Unmarshal</span>(data, <span style="color:#000;font-weight:bold">&amp;</span>d); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">32</span>                 log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Decoding Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">33</span>                 <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">34</span>             }
+<span style="color:#099">35</span>
+<span style="color:#099">36</span>             <span style="color:#000;font-weight:bold">for</span> _, item <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> d.Channel.Items {
+<span style="color:#099">37</span>                 <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Title, topic) {
+<span style="color:#099">38</span>                     lFound<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">39</span>                     <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">40</span>                 }
+<span style="color:#099">41</span>
+<span style="color:#099">42</span>                 <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Description, topic) {
+<span style="color:#099">43</span>                     lFound<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">44</span>                 }
+<span style="color:#099">45</span>             }
+<span style="color:#099">46</span>         }(doc)
+<span style="color:#099">47</span>     }
+<span style="color:#099">48</span>
+<span style="color:#099">49</span>     wg.<span style="color:#900;font-weight:bold">Wait</span>()
+<span style="color:#099">50</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#0086b3">int</span>(found)
+<span style="color:#099">51</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>清单6显示了 <code>freq</code> 的一个可能的并发版本。该版本的核心设计模式是使用了扇出模式。对于在 <code>docs</code> 集合中列出的每个文件，就创建一个协程来处理它。如果有4000个文档需要处理，则使用4000个协程。该算法的一个<strong>优势</strong>是它是利用并发的最简单的方式。每个协程仅处理一个文件。可以使用 <code>WaitGroup</code> 来执行等待处理每个文档的编排，并且原子指令可以使计数器保持同步。</p>
+<p>该算法的<strong>劣势</strong>是文档数或核心数改变时扩展性不好。所有的goroutine都将有时间在程序启动时尽早运行，这意味着大量内存将被快速消耗掉。在第12行添加 <code>found</code> 的变量也存在缓存一致性问题。由于每个内核为此变量共享相同的缓存行，这将导致内存碰撞。当文件数或核数增加时将变得更糟。</p>
+<p>使用该代码，现在可以重新构建并再将运行程序。</p>
+<p><strong>Listing 7</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">$ go build
+$ <span style="color:#0086b3">time</span> ./trace &gt; t.out
+Searching <span style="color:#099">4000</span> files, found president <span style="color:#099">28000</span> times.
+./trace &gt; t.out  6.49s user 2.46s system 941% cpu 0.951 total
+</code></pre></td></tr></table>
+</div>
+</div><p>可以在清单7的输出中看到，程序现在使用 951ms处理同样的4000个文件。性能有大约64%的提升。看一下追踪</p>
+<p><strong>Figure 6</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure6.png" />   
+    </p>
+<p>图6显示了我的机器被该版本的程序使用了多少CPU容量。图表开头的有很多的密度。这是因为所有的协程被创建，他们运行并开始尝试在堆一分配内存。一旦分配了前4兆(meg即兆的意思)的内存（很快），就会启动GC。在GC期间，每个协程都有时间运行，并且大多数协程在堆上请求内存时都处于等待状态。到该GC完成时，至少有9协程会继续运行，堆内存增加到大约26兆。</p>
+<p><strong>Figure 7</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure7.png" />   
+    </p>
+<p>图7显示了很大一部分goroutine在第一个GC的大部分处于Runnable和Running状态，以及如何迅速重新启动。 请注意，堆概要文件看起来是不规则的，并且收集没有像以前那样有规律地进行。 如果仔细观察，第二个GC几乎会在第一个GC之后立即启动。</p>
+<p>如果您选择此图中的所有收集，您将看到以下内容。</p>
+<p><strong>Figure 8</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure8.png" />   
+    </p>
+<p>图8显示图中的所有蓝线都在4.828毫秒标记到906.939毫秒标记之间。 有23个垃圾收集代表了284.447毫秒的时间，平均收集时间为12.367毫秒。 知道该程序需要951毫秒才能运行，这意味着垃圾回收约占总运行时间的34％。</p>
+<p>与顺序版本相比，这在性能和GC时间上都存在重大差异。 但是，以并行方式运行更多goroutine可以使工作完成的速度提高约64％。 成本是需要更多的机器资源。 不幸的是，在高峰时，一次在堆上使用了约200兆的内存。</p>
+<p>有了并发基准，下一个并发算法将尝试利用资源提高效率。</p>
+<p><strong>Listing 8</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">55
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">56
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">57
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">58
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">59
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">60
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">61
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#099">01</span> <span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">freqNumCPU</span>(topic <span style="color:#458;font-weight:bold">string</span>, docs []<span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">int</span> {
+<span style="color:#099">02</span>     <span style="color:#000;font-weight:bold">var</span> found <span style="color:#458;font-weight:bold">int32</span>
+<span style="color:#099">03</span>
+<span style="color:#099">04</span>     g <span style="color:#000;font-weight:bold">:=</span> runtime.<span style="color:#900;font-weight:bold">NumCPU</span>()
+<span style="color:#099">05</span>     <span style="color:#000;font-weight:bold">var</span> wg sync.WaitGroup
+<span style="color:#099">06</span>     wg.<span style="color:#900;font-weight:bold">Add</span>(g)
+<span style="color:#099">07</span>
+<span style="color:#099">08</span>     ch <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>(<span style="color:#000;font-weight:bold">chan</span> <span style="color:#458;font-weight:bold">string</span>, g)
+<span style="color:#099">09</span>
+<span style="color:#099">10</span>     <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; g; i<span style="color:#000;font-weight:bold">++</span> {
+<span style="color:#099">11</span>         <span style="color:#000;font-weight:bold">go</span> <span style="color:#000;font-weight:bold">func</span>() {
+<span style="color:#099">12</span>             <span style="color:#000;font-weight:bold">var</span> lFound <span style="color:#458;font-weight:bold">int32</span>
+<span style="color:#099">13</span>             <span style="color:#000;font-weight:bold">defer</span> <span style="color:#000;font-weight:bold">func</span>() {
+<span style="color:#099">14</span>                 atomic.<span style="color:#900;font-weight:bold">AddInt32</span>(<span style="color:#000;font-weight:bold">&amp;</span>found, lFound)
+<span style="color:#099">15</span>                 wg.<span style="color:#900;font-weight:bold">Done</span>()
+<span style="color:#099">16</span>             }()
+<span style="color:#099">17</span>
+<span style="color:#099">18</span>             <span style="color:#000;font-weight:bold">for</span> doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> ch {
+<span style="color:#099">19</span>                 file <span style="color:#000;font-weight:bold">:=</span> fmt.<span style="color:#900;font-weight:bold">Sprintf</span>(<span style="color:#d14">&#34;%s.xml&#34;</span>, doc[:<span style="color:#099">8</span>])
+<span style="color:#099">20</span>                 f, err <span style="color:#000;font-weight:bold">:=</span> os.<span style="color:#900;font-weight:bold">OpenFile</span>(file, os.O_RDONLY, <span style="color:#099">0</span>)
+<span style="color:#099">21</span>                 <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">22</span>                     log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Opening Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">23</span>                     <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">24</span>                 }
+<span style="color:#099">25</span>
+<span style="color:#099">26</span>                 data, err <span style="color:#000;font-weight:bold">:=</span> ioutil.<span style="color:#900;font-weight:bold">ReadAll</span>(f)
+<span style="color:#099">27</span>                 <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">28</span>                     f.<span style="color:#900;font-weight:bold">Close</span>()
+<span style="color:#099">29</span>                     log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Reading Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">23</span>                     <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">24</span>                 }
+<span style="color:#099">25</span>                 f.<span style="color:#900;font-weight:bold">Close</span>()
+<span style="color:#099">26</span>
+<span style="color:#099">27</span>                 <span style="color:#000;font-weight:bold">var</span> d document
+<span style="color:#099">28</span>                 <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">:=</span> xml.<span style="color:#900;font-weight:bold">Unmarshal</span>(data, <span style="color:#000;font-weight:bold">&amp;</span>d); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+<span style="color:#099">29</span>                     log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Decoding Document [%s] : ERROR : %v&#34;</span>, doc, err)
+<span style="color:#099">30</span>                     <span style="color:#000;font-weight:bold">return</span>
+<span style="color:#099">31</span>                 }
+<span style="color:#099">32</span>
+<span style="color:#099">33</span>                 <span style="color:#000;font-weight:bold">for</span> _, item <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> d.Channel.Items {
+<span style="color:#099">34</span>                     <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Title, topic) {
+<span style="color:#099">35</span>                         lFound<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">36</span>                         <span style="color:#000;font-weight:bold">continue</span>
+<span style="color:#099">37</span>                     }
+<span style="color:#099">38</span>
+<span style="color:#099">39</span>                     <span style="color:#000;font-weight:bold">if</span> strings.<span style="color:#900;font-weight:bold">Contains</span>(item.Description, topic) {
+<span style="color:#099">40</span>                         lFound<span style="color:#000;font-weight:bold">++</span>
+<span style="color:#099">41</span>                     }
+<span style="color:#099">42</span>                 }
+<span style="color:#099">43</span>             }
+<span style="color:#099">44</span>         }()
+<span style="color:#099">45</span>     }
+<span style="color:#099">46</span>
+<span style="color:#099">47</span>     <span style="color:#000;font-weight:bold">for</span> _, doc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> docs {
+<span style="color:#099">48</span>         ch <span style="color:#000;font-weight:bold">&lt;-</span> doc
+<span style="color:#099">49</span>     }
+<span style="color:#099">50</span>     <span style="color:#0086b3">close</span>(ch)
+<span style="color:#099">51</span>
+<span style="color:#099">52</span>     wg.<span style="color:#900;font-weight:bold">Wait</span>()
+<span style="color:#099">53</span>     <span style="color:#000;font-weight:bold">return</span> <span style="color:#0086b3">int</span>(found)
+<span style="color:#099">54</span> }
+</code></pre></td></tr></table>
+</div>
+</div><p>清单8显示 <code>freqNumCPU</code> 版本的程序。该版本的核心设计模式是使用池化模式。基于逻辑处理器数的协程池来处理所有的文件。如果有12个可用的逻辑处理器，则会使用12个协程。该算法的<strong>优势</strong>是它使程序的资源使用从头到尾保持一致。由于使用固定数据的协程，在任何时候只需要给定这12个协程所需要的内存。这也解决了内存抖动导致的缓存一致性问题。这是因为在14行调用原子指令只发生少量的次数。</p>
+<p>这个算法的劣势是更复杂了。它增加了通道的使用来满足池中协程的所有工作。在使用池的任何时间，为池标识“正确”数量的goroutine都是很复杂的。 通常，我给每个逻辑处理器1个goroutine来启动池。 然后执行负载测试或使用生产指标，可以计算出池的最终值。</p>
+<p>使用此代码后，现在您可以重新生成并运行该程序。</p>
+<p>使用该代码，现在可以重建并再次运行程序。</p>
+<p><strong>Listing 9</strong></p>
+<pre><code class="language-command" data-lang="command">$ go build
+$ time ./trace &gt; t.out
+Searching 4000 files, found president 28000 times.
+./trace &gt; t.out  6.22s user 0.64s system 909% cpu 0.754 total
+</code></pre><p>可以从清单9的输出中看到，现在程序使用 754毫秒来处理同样的4000个文件。该程序快了约200毫秒，这对于这种小负载而言非常重要。看一下追踪。</p>
+<p><strong>Figure 9</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure9.png" />   
+    </p>
+<p>图9显示了这个版本的程序如何使用了我机器上CPU的所有容量。如果仔细观察，该程序将再次具有一致的节奏。与顺序版本非常相似。</p>
+<p><strong>Figure 10</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure10.png" />   
+    </p>
+<p>图10显示了如何在程序的前20毫秒中更仔细地查看核心指标。 收集肯定比顺序版本长，但有12个goroutine正在运行。 在程序的整个运行过程中，堆中正在使用的内存保持在〜4 meg。 同样，与程序的顺序版本相同。</p>
+<p>如果您选择此图中的所有集合，您将看到以下内容。</p>
+<p><strong>Figure 11</strong>
+
+        <img class="mx-auto" alt="img" src="https://www.ardanlabs.com/images/goinggo/103_figure11.png" />   
+    </p>
+<p>图11显示了表中所有蓝线处于 3.055毫秒标记到719.928毫秒标记之间。有代表177.709毫秒时间的467个垃圾回收和平均占用380.535毫秒的回收。知道程序运行使用 754毫秒，这意味着垃圾回收占用了整个运行时间的大约25%。和其他并发版本相比提升了9%。</p>
+<p>此版本的并发算法似乎可以通过更多文件和内核来更好地扩展。 在我看来，复杂性成本是值得的。 可以通过将列表切成每个Goroutine的工作桶来替换该通道。 这无疑会增加更多的复杂性，尽管它可以减少通道引起的某些延迟成本。 对于更多的文件和内核，这可能很重要，但是需要衡量复杂性成本。 您可以尝试一下。</p>
+<h2 id="结论">结论</h2>
+<p>我喜欢比较算法的三个版本的原因是GC如何处理每种情况。在任何版本中，处理文件所需的总内存量不会改变。改变的是程序的分配方式。</p>
+<p>当只有一个协程，基本的4M堆内存是所需要的所有内存。当程序一次在运行时放弃所有工作时，GC采取了让堆增长的方法，减少了收集的数量，但运行了更长收集。 当程序在任何给定时间控制正在处理的文件数时，GC就会采用使堆再次保持较小的方法，从而增加了收集数，但运行了较小的收集。 GC采取的每种方法本质上都使程序可以在GC对程序产生最小影响的情况下运行。</p>
+<pre><code class="language-table" data-lang="table">| Algorithm  | Program | GC Time  | % Of GC | # of GC’s | Avg GC   | Max Heap |
+|------------|---------|----------|---------|-----------|----------|----------|
+| freq       | 2626 ms |  64.5 ms |     ~2% |       232 |   278 μs |    4 meg |
+| concurrent |  951 ms | 284.4 ms |    ~34% |        23 |  12.3 ms |  200 meg |
+| numCPU     |  754 ms | 177.7 ms |    ~25% |       467 | 380.5 μs |    4 meg |
+</code></pre><p><code>freqNumCPU</code> 版本还有其他用途，例如更好地处理缓存一致性，这很有帮助。但是，每个程序的GC时间问题差异非常接近，分别为大约284.4ms和177.7ms。在我的计算机上运行该程序的某些天，这些数字甚至更接近。 使用1.13.beta1版进行一些实验，我已经看到两种算法都在相同的时间运行。 可能暗示它们可能是即将来临的一些改进，这些改进使GC可以更好地预测运行方式。</p>
+<p>所有这些使我有信心在运行时投入大量工作。 这是一个使用50k goroutine的Web服务，它本质上是一种类似于第一个并发算法的扇出模式。 GC将研究工作量，并找到使服务摆脱困境的最佳步伐。 至少对我来说，不必考虑任何这些都值得入场的代价。</p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/translate/garbage-collection-in-go-part-2-gc-traces/">Go语言的垃圾回收：第一部分 GC追踪</a></li>
+        
+        <li><a href="/post/translate/garbage-collection-in-go-part-1-semantics/">Go语言的垃圾回收：第一部分 语义</a></li>
+        
+        <li><a href="/post/translate/Language-mechanics-design-philosophy-data-and-semantics/">数据和语义的设计哲学</a></li>
+        
+        <li><a href="/post/translate/Language-mechanics-on-memory-profiling/">内存剖析的语言机制</a></li>
+        
+        <li><a href="/post/translate/Language-mechanics-on-escape-analysis/">逃逸分析的语言机制</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/gc'>gc</a></li>
+                
+                <li><a href='/tags/trace'>trace</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/" title="Go语言的垃圾回收 第三部分 GC速度">Go语言的垃圾回收 第三部分 GC速度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/" title="Go语言的垃圾回收：第一部分 GC追踪">Go语言的垃圾回收：第一部分 GC追踪</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-1-semantics/" title="Go语言的垃圾回收：第一部分 语义">Go语言的垃圾回收：第一部分 语义</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Scheduling-In-Go-3-Concurrency/" title="Go的调度：第三部分 - 并发">Go的调度：第三部分 - 并发</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (14)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (1)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/gc/">gc</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/trace/">trace</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

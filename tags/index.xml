@@ -6,22 +6,40 @@
     <description>Recent content in Tags on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Tue, 20 Apr 2021 10:33:39 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 21 Apr 2021 11:33:56 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>data</title>
-      <link>https://cyberwave.github.io/tags/data/</link>
-      <pubDate>Tue, 20 Apr 2021 10:33:39 +0800</pubDate>
+      <title>gc</title>
+      <link>https://cyberwave.github.io/tags/gc/</link>
+      <pubDate>Wed, 21 Apr 2021 11:33:56 +0800</pubDate>
       
-      <guid>https://cyberwave.github.io/tags/data/</guid>
+      <guid>https://cyberwave.github.io/tags/gc/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>trace</title>
+      <link>https://cyberwave.github.io/tags/trace/</link>
+      <pubDate>Wed, 21 Apr 2021 11:33:56 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/tags/trace/</guid>
       <description></description>
     </item>
     
     <item>
       <title>translate</title>
       <link>https://cyberwave.github.io/tags/translate/</link>
-      <pubDate>Tue, 20 Apr 2021 10:33:39 +0800</pubDate>
+      <pubDate>Wed, 21 Apr 2021 11:33:56 +0800</pubDate>
       
       <guid>https://cyberwave.github.io/tags/translate/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>data</title>
+      <link>https://cyberwave.github.io/tags/data/</link>
+      <pubDate>Tue, 20 Apr 2021 10:33:39 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/tags/data/</guid>
       <description></description>
     </item>
     
