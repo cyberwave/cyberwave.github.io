@@ -80,6 +80,15 @@
     </item>
     
     <item>
+      <title>Go知识网站集合</title>
+      <link>https://cyberwave.github.io/post/go-known-network-collection/</link>
+      <pubDate>Mon, 01 Mar 2021 15:47:43 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/go-known-network-collection/</guid>
+      <description>语言规范 Close Channels Gracefully in Golang: 如何优雅地关闭channel? Compile-time assertions in Go: 编译时断言 Why are slices sometimes altered when passed by value in Go?: Go不是按值传递么，怎么slice传入后被更改了呢？</description>
+    </item>
+    
+    <item>
       <title>Go语言调度器的工作窃取</title>
       <link>https://cyberwave.github.io/post/Go-work-stealing-scheduler/</link>
       <pubDate>Mon, 01 Mar 2021 15:47:43 +0800</pubDate>

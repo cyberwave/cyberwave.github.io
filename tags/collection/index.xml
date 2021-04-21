@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>golang on 听雪者的博客</title>
-    <link>https://cyberwave.github.io/tags/golang/</link>
-    <description>Recent content in golang on 听雪者的博客</description>
+    <title>collection on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/collection/</link>
+    <description>Recent content in collection on 听雪者的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Mon, 01 Mar 2021 15:47:43 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 01 Mar 2021 15:47:43 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/collection/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Go知识网站集合</title>
       <link>https://cyberwave.github.io/post/go-known-network-collection/</link>
