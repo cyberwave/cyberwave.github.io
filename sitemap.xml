@@ -258,6 +258,71 @@
   </url>
   
   <url>
+    <loc>https://cyberwave.github.io/tags/os/</loc>
+    <lastmod>2019-11-18T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</loc>
+    <lastmod>2019-11-18T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/tags/http/</loc>
+    <lastmod>2019-11-07T11:54:40+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/categories/http/</loc>
+    <lastmod>2019-11-07T11:54:40+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/tags/timeout/</loc>
+    <lastmod>2019-11-07T11:54:40+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/golang-net-http-timeout/</loc>
+    <lastmod>2019-11-07T11:54:40+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/tags/cors/</loc>
+    <lastmod>2019-11-06T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/cors/</loc>
+    <lastmod>2019-11-06T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/tags/clean-architecture/</loc>
+    <lastmod>2019-10-29T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/clean-arch-summary-review/</loc>
+    <lastmod>2019-10-29T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/structure-production-rest-api-in-go/</loc>
+    <lastmod>2019-10-29T09:58:40+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/how-to-pass-shared-resource-in-go/</loc>
+    <lastmod>2019-10-28T09:58:40+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/golang-database-sql/</loc>
+    <lastmod>2018-10-01T11:54:40+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://cyberwave.github.io/about/</loc>
     <lastmod>2015-03-10T00:13:27+00:00</lastmod>
   </url>

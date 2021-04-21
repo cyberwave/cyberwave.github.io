@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>如何用go构建生产级rest api | 听雪者的博客</title>
+    <meta property="og:title" content="如何用go构建生产级rest api - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2019-10-29T09:58:40&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2019-10-29T09:58:40&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="如何用go构建生产级rest api">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/structure-production-rest-api-in-go/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#我们开始吧">我们开始吧</a></li>
+    <li><a href="#上面代码中一些最佳实践的亮点">上面代码中一些最佳实践的亮点</a></li>
+    <li><a href="#接下来我们创建一个-todo-包它实际上包含我们的-todo-逻辑">接下来我们创建一个 todo 包，它实际上包含我们的 todo 逻辑</a></li>
+    <li><a href="#注意事项">注意事项</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">如何用go构建生产级rest api</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2019年10月29日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p><a href="https://itnext.io/structuring-a-production-grade-rest-api-in-golang-c0229b3feedc">原文</a></p>
+<p>有个神话&ndash;使用golang写API，不像其他语言那样简单且惯用。实际上， 我遇到了很多REST API 代码库，它们使用了如此多的抽象使代码变得复杂混乱，最终有损可读性和可维护性。</p>
+<p>在本系列中， 我们将逐步讲解如何构建生产级 todo 列表 api ，它将从必要性，如代码结构和路由，开始有机地增长，然后增加 mongo db 和 badger 数据存储层，然后是身份验证层。</p>
+<p>在该系列我们使用 chi 路由。</p>
+<p>为什么是 Chi?而不是标准库，或 Gin，或 router-x?</p>
+<p>其实没关系，无论您使用哪种路由，在该系列讨论的概念都适用。但是有一些检查清单使我认为 Chi-regard 比大多数备选方案更优越：</p>
+<ul>
+<li>和 <code>net/http</code> 100%兼容 &ndash; 在生态系统中使用任何http或中间件包也兼容 <code>net/http</code>。</li>
+<li>专为模块化/组合化的APIs设计 &ndash; 中间件，内联中间件，路由分组和子路由安装。</li>
+<li>没有外部依赖 &ndash; Go1.7 + stdlib + net/http</li>
+<li>很强大 &ndash; 在 Pressly，CloudFlare，HeroKu，99Designs 等许多其他公司生产中</li>
+<li>轻量级 &ndash; 对于 chi 路由，cloc 约为 1000 LOC</li>
+<li>真的很快</li>
+</ul>
+<p>我最喜欢的是，您为其他 <code>net/http</code> 兼容的路由编写的旧的 http 处理程序和中间件也可以工作</p>
+<h2 id="我们开始吧">我们开始吧</h2>
+<p>首先我们创建 main.go</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">package</span> main
+
+<span style="color:#000;font-weight:bold">import</span> (
+	<span style="color:#d14">&#34;log&#34;</span>
+  <span style="color:#d14">&#34;net/http&#34;</span>
+  
+  <span style="color:#d14">&#34;github.com/go-chi/chi&#34;</span>
+  <span style="color:#d14">&#34;github.com/go-chi/chi/middleware&#34;</span>
+  <span style="color:#d14">&#34;github.com/go-chi/render&#34;</span>
+  <span style="color:#d14">&#34;github.com/tonyalaribe/todoapi/basestructure/features/todo&#34;</span>
+)
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Routes</span>() <span style="color:#000;font-weight:bold">*</span>chi.Mux {
+  router <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">NewRouter</span>()
+  router.<span style="color:#900;font-weight:bold">Use</span>(
+    render.<span style="color:#900;font-weight:bold">SetContentType</span>(render.ContentTypeJSON), <span style="color:#998;font-style:italic">// Set content-Type headers as application/json
+</span><span style="color:#998;font-style:italic"></span>    middleware.Logger, <span style="color:#998;font-style:italic">// Log API request calls
+</span><span style="color:#998;font-style:italic"></span>    middleware.DefaultCompress, <span style="color:#998;font-style:italic">// Compress results, mostly gzipping assets and json
+</span><span style="color:#998;font-style:italic"></span>    middleware.RedirectSlashes,  <span style="color:#998;font-style:italic">// Redirect slashes to no slash URL versions
+</span><span style="color:#998;font-style:italic"></span>    middleware.Recoverer,  <span style="color:#998;font-style:italic">// Recover from panics without crashing server
+</span><span style="color:#998;font-style:italic"></span>  )
+  
+  router.<span style="color:#900;font-weight:bold">Route</span>(<span style="color:#d14">&#34;/v1&#34;</span>, <span style="color:#000;font-weight:bold">func</span>(r chi.Router){
+    r.<span style="color:#900;font-weight:bold">Mount</span>(<span style="color:#d14">&#34;/api/todo&#34;</span>, todo.<span style="color:#900;font-weight:bold">Routes</span>())
+  })
+  <span style="color:#000;font-weight:bold">return</span> router
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  router <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">Routes</span>()
+  
+  walkFunc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">func</span>(method <span style="color:#458;font-weight:bold">string</span>, route <span style="color:#458;font-weight:bold">string</span>, handler http.Handler, middlewares <span style="color:#000;font-weight:bold">...</span><span style="color:#000;font-weight:bold">func</span>(http.Handler) http.Handler) <span style="color:#458;font-weight:bold">error</span>{
+    log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;%s %s\n&#34;</span>, method, route) <span style="color:#998;font-style:italic">// Walk and print out all routes
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">nil</span>
+  }
+  <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> chi.<span style="color:#900;font-weight:bold">Walk</span>(router, walkFunc); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span>  {
+    log.<span style="color:#900;font-weight:bold">Panicf</span>(<span style="color:#d14">&#34;Logging err: %s\n&#34;</span>, err.<span style="color:#900;font-weight:bold">Error</span>()) <span style="color:#998;font-style:italic">// panic if there is an error
+</span><span style="color:#998;font-style:italic"></span>  }
+  
+  log.<span style="color:#900;font-weight:bold">Fatal</span>(http.<span style="color:#900;font-weight:bold">ListenAndServe</span>(<span style="color:#d14">&#34;:8080&#34;</span>, router)) <span style="color:#998;font-style:italic">// Note, the port is usually gotten from the environment.
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="上面代码中一些最佳实践的亮点">上面代码中一些最佳实践的亮点</h2>
+<ol>
+<li>
+<p>在独立的包中对路由进行逻辑分组，并安装这些路由：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">r.<span style="color:#900;font-weight:bold">Mount</span>(<span style="color:#d14">&#34;/api/todo&#34;</span>, todo.<span style="color:#900;font-weight:bold">Routes</span>())
+</code></pre></td></tr></table>
+</div>
+</div></li>
+<li>
+<p>API的版本，可以不用中断旧的客户端升级api</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">router.<span style="color:#900;font-weight:bold">Route</span>(<span style="color:#d14">&#34;/v1&#34;</span>, <span style="color:#000;font-weight:bold">...</span>)
+</code></pre></td></tr></table>
+</div>
+</div></li>
+<li>
+<p>使用中间件扩展，许多被大量路由使用的代码都可以变成可链接的中间件。例如，身价认证，设计响应头，压缩，请求日志，限速等等。</p>
+</li>
+</ol>
+<p>chi 路由有一个名为 <code>walk</code> 的方法，该方法接收：</p>
+<ul>
+<li>路由</li>
+<li>回调</li>
+</ul>
+<p>回调被每个在 <code>router</code> 中定义的路由 <code>route</code> 调用，接收四个参数：</p>
+<ol>
+<li>为 route 定义的方法</li>
+<li>实际的路由字符串</li>
+<li>处理程序（函数），用于处理给定路由的请求</li>
+<li>为给定路由定义的中间件列表(中间件是一个简单的函数，它在处理函数handler被调用之前调用，所以它们被用来预处理请求，身份认证等等)</li>
+</ol>
+<p>在我的例子中，我简单地 walk 路由并打印所有定义的路由。这帮助我一目了然地查看所有可接触到的路由</p>
+<h2 id="接下来我们创建一个-todo-包它实际上包含我们的-todo-逻辑">接下来我们创建一个 todo 包，它实际上包含我们的 todo 逻辑</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">55
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">56
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">package</span> todo
+
+<span style="color:#000;font-weight:bold">import</span> (
+	<span style="color:#d14">&#34;net/http&#34;</span>
+  
+  <span style="color:#d14">&#34;github.com/go-chi/chi&#34;</span>
+  <span style="color:#d14">&#34;github.com/go-chi/render&#34;</span>
+)
+
+<span style="color:#000;font-weight:bold">type</span> Todo <span style="color:#000;font-weight:bold">struct</span> {
+  Slug  <span style="color:#458;font-weight:bold">string</span> <span style="color:#d14">`json:&#34;slug&#34;`</span>
+  Title <span style="color:#458;font-weight:bold">string</span> <span style="color:#d14">`json:&#34;title&#34;`</span>
+  Body  <span style="color:#458;font-weight:bold">string</span> <span style="color:#d14">`json:&#34;body&#34;`</span>
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Routes</span>() <span style="color:#000;font-weight:bold">*</span>chi.Mux {
+  router <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">NewRouter</span>()
+  router.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, GetATodo)
+  router.<span style="color:#900;font-weight:bold">Delete</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, DeleteTodo)
+  router.<span style="color:#900;font-weight:bold">Post</span>(<span style="color:#d14">&#34;/&#34;</span>, CreateTodo)
+  router.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/&#34;</span>, GetAllTodos)
+  <span style="color:#000;font-weight:bold">return</span> router
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">GetATodo</span>(w http.ResponseWriter, r <span style="color:#000;font-weight:bold">*</span>http.Request) {
+  todoID <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">URLParam</span>(r, <span style="color:#d14">&#34;todoID&#34;</span>)
+  todos <span style="color:#000;font-weight:bold">:=</span> Todo{
+    Slug: todoID,
+    Title: <span style="color:#d14">&#34;Hello world&#34;</span>,
+    Body: <span style="color:#d14">&#34;Heloo world from planet earth&#34;</span>,
+  }
+  render.<span style="color:#900;font-weight:bold">JSON</span>(w, r, todos) <span style="color:#998;font-style:italic">// A chi router helper for serializing and returning json
+</span><span style="color:#998;font-style:italic"></span>}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">DeleteTodo</span>( w http.ResponseWriter, r <span style="color:#000;font-weight:bold">*</span>http.Request){
+  response <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>(<span style="color:#000;font-weight:bold">map</span>[<span style="color:#458;font-weight:bold">string</span>]<span style="color:#458;font-weight:bold">string</span>)
+  response[<span style="color:#d14">&#34;message&#34;</span>] = <span style="color:#d14">&#34;Deleted TODO successfully&#34;</span>
+  render.<span style="color:#900;font-weight:bold">JSON</span>(w, r, response) <span style="color:#998;font-style:italic">// Return some demo response
+</span><span style="color:#998;font-style:italic"></span>}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">CreateTodo</span>(w http.ResponseWriter, r <span style="color:#000;font-weight:bold">*</span>http.Request){
+  response <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>(<span style="color:#000;font-weight:bold">map</span>[<span style="color:#458;font-weight:bold">string</span>]<span style="color:#458;font-weight:bold">string</span>)
+  response[<span style="color:#d14">&#34;message&#34;</span>] = <span style="color:#d14">&#34;Created TODO successfully&#34;</span>
+  render.<span style="color:#900;font-weight:bold">JSON</span>(w, r, response) <span style="color:#998;font-style:italic">// Return some demo response
+</span><span style="color:#998;font-style:italic"></span>}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">GetAllTodos</span>(w http.ResponseWriter, r <span style="color:#000;font-weight:bold">*</span>http.Request){
+  todos <span style="color:#000;font-weight:bold">:=</span> []Todo{
+    {
+      Slug:  <span style="color:#d14">&#34;slug&#34;</span>,
+      Title: <span style="color:#d14">&#34;Hello world&#34;</span>,
+      Body:  <span style="color:#d14">&#34;Heloo world from planet earth&#34;</span>,
+    },
+  }
+  render.<span style="color:#900;font-weight:bold">JSON</span>(w, r, todos) <span style="color:#998;font-style:italic">// A chi router helper for serializing and returning json
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="注意事项">注意事项</h2>
+<ol>
+<li>todo 包有一个返回所有路由的函数。它们被安装在 main.go 中。实际上，我通常在名为 <em>routes.go</em> 的文件中添加这些路由，所以很容易在包中找到</li>
+<li>有函数签名 <code>func (w http.ResponseWriter, r *http.Request)</code> 的处理程序，意味着如果你在标准库中使用 net/http ，你要写的处理程序没有不同的形式</li>
+<li>render.JSON 的使用，仅仅是 <code>encoding.json</code> 的封装，它自动转义 JSON 响应中的所有 html，并将 content type 设置为 application/json</li>
+</ol>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/translate/how-to-pass-shared-resource-in-go/">如何在Go项目中传递共享资源</a></li>
+        
+        <li><a href="/post/golang-database-sql/">Go中使用database/sql</a></li>
+        
+        <li><a href="/about/">关于我</a></li>
+        
+        <li><a href="/tools/">工具</a></li>
+        
+        <li><a href="/archives/">归档</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/http'>http</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/" title="Go语言的垃圾回收 第三部分 GC速度">Go语言的垃圾回收 第三部分 GC速度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/" title="Go语言的垃圾回收：第二部分 GC追踪">Go语言的垃圾回收：第二部分 GC追踪</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-1-semantics/" title="Go语言的垃圾回收：第一部分 语义">Go语言的垃圾回收：第一部分 语义</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/go-known-network-collection/" title="Go知识网站集合">Go知识网站集合</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (22)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/http/">http (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (2)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/clean-architecture/">clean architecture</a>
+    
+    <a href="https://cyberwave.github.io/tags/collection/">collection</a>
+    
+    <a href="https://cyberwave.github.io/tags/cors/">cors</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/gc/">gc</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/http/">http</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/os/">os</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/timeout/">timeout</a>
+    
+    <a href="https://cyberwave.github.io/tags/trace/">trace</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

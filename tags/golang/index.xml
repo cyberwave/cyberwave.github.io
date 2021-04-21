@@ -16,5 +16,14 @@
       <description>语言规范 Close Channels Gracefully in Golang: 如何优雅地关闭channel? Compile-time assertions in Go: 编译时断言 Why are slices sometimes altered when passed by value in Go?: Go不是按值传递么，怎么slice传入后被更改了呢？</description>
     </item>
     
+    <item>
+      <title>Go中使用database/sql</title>
+      <link>https://cyberwave.github.io/post/golang-database-sql/</link>
+      <pubDate>Mon, 01 Oct 2018 11:54:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/golang-database-sql/</guid>
+      <description>Go Database/SQL 原文 在我们Golang教程的第8章, 我们讨论了 &amp;ldquo;Common Utilities in Project Golang&amp;rdquo;。 在本章节，我们来探索 ’Go-database/SQL‘</description>
+    </item>
+    
   </channel>
 </rss>

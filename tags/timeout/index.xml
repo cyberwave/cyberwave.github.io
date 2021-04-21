@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>timeout on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/timeout/</link>
+    <description>Recent content in timeout on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Thu, 07 Nov 2019 11:54:40 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/timeout/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>标准net/http将破坏你的生产环境</title>
+      <link>https://cyberwave.github.io/post/golang-net-http-timeout/</link>
+      <pubDate>Thu, 07 Nov 2019 11:54:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/golang-net-http-timeout/</guid>
+      <description>另一个标题net/http超时介绍 原文发表在blog.simon-frey.eu 首先，正如你已经从标题中认识到，这篇博客文章是站在巨人的肩上</description>
+    </item>
+    
+  </channel>
+</rss>

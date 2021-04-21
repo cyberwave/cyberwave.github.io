@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>Go中使用database/sql | 听雪者的博客</title>
+    <meta property="og:title" content="Go中使用database/sql - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-10-01T11:54:40&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-10-01T11:54:40&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="Go中使用database/sql">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/golang-database-sql/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#使用-prepared-语句">使用 Prepared 语句</a>
+      <ul>
+        <li><a href="#prepared-语句和连接">Prepared 语句和连接</a></li>
+        <li><a href="#在事务中准备语句">在事务中准备语句</a></li>
+      </ul>
+    </li>
+    <li><a href="#错误处理">错误处理</a>
+      <ul>
+        <li><a href="#迭代结果集错误">迭代结果集错误</a></li>
+        <li><a href="#关闭结果集错误">关闭结果集错误</a></li>
+        <li><a href="#queryrow-错误">QueryRow 错误</a></li>
+        <li><a href="#nulls">NULLS</a></li>
+        <li><a href="#连接池">连接池</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go中使用database/sql</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年10月1日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+            <span class="meta-category"><a href='/categories/mysql'>mysql</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h1 id="go-databasesql">Go Database/SQL</h1>
+<p><a href="http://mindbowser.com/golang-go-database-sql/">原文</a></p>
+<p>在我们Golang教程的<a href="http://mindbowser.com/golang-common-utilities/">第8章</a>, 我们讨论了 &ldquo;Common Utilities in Project Golang&rdquo;。 在本章节，我们来探索 ’Go-database/SQL‘。</p>
+<p>为了在Go中使用 <code>SQL</code> 或 <code>类似SQL</code>的数据库。我们需要使用<code>&quot;database/sql&quot;</code>包。它提供连接数据库的轻量级接口。</p>
+<p>基本上，为了在Go中访问数据库，我们需要使用 <code>sql.DB</code> 。你需要使用它来创建语句，事务，执行查询和获取结果。但是要记住，<code>sql.DB</code> 不是一个数据库连接。根据Go规范，“它是一个接口的抽象和数据库的存在，它可能与本地文件一样多样化，通过网络连接访问，或者在内存中和进程中”。</p>
+<p><code>sql.DB</code>执行以下任务：</p>
+<ol>
+<li>打开和关闭与底层数据库驱动的连接。</li>
+<li>管理连接池。</li>
+</ol>
+<p>连接池像这样被管理：当你要做某些操作的时候，该连接将被标记为使用中，如果不再使用，它被返回到池中。这样的后果是如果你释放连接到池中失败，将导致 <code>db.SQL</code> 打开过多的连接进而耗尽资源。</p>
+<p>在创建 <code>sql.DB</code> 后，你可以使用它查询数据库，以及创建语句和创建交易。</p>
+<ul>
+<li>导入数据库驱动</li>
+</ul>
+<p>要使用 <code>database/sql</code> ，你将需要包本身以及与数据库相关的特定驱动程序。您通常不应该直接使用驱动程序包，尽管有些驱动程序会鼓励您这样做。相反，如果可能，您的代码应仅引用 <code>database/sql</code> 中定义的类型。这将有且于避免您的代码依赖于驱动程序，以便您可以使用最少的代码修改来更换底层驱动程序(以及您正在访问的数据库)。</p>
+<p>在这里，我们将使用 @julienschmidt和@arnehormann提供的优秀 <a href="https://github.com/go-sql-driver/mysql">MySQL</a> 驱动程序。</p>
+<p>现在你需要像这样来导入访问 db 的包:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">import</span> (
+	<span style="color:#d14">&#34;database/sql&#34;</span>
+	_ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+)
+</code></pre></td></tr></table>
+</div>
+</div><p>我们已经在这个第三方驱动前使用 <code>_</code> 标识，因此我们的代码中没有任何导出的可见名称。</p>
+<p>要使用此第三方驱动程序，请使用 <code>go get</code> 命令从 GitHub 上下载。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">go</span> get <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>现在，我们准备好访问数据库了。</p>
+<p>由于我们已经导入了包，所以现在需要创建数据库对象 <code>sql.DB</code>，要创建 <code>sql.DB</code>，请使用 <code>sql.Open()</code> ，这将返回 <code>*sql.DB</code> 对象。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#998;font-style:italic">//main.go
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+	_ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+	<span style="color:#d14">&#34;database/sql&#34;</span>
+	<span style="color:#d14">&#34;fmt&#34;</span>
+)
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+	db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+	<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+		fmt.<span style="color:#900;font-weight:bold">Println</span>(err)
+     }<span style="color:#000;font-weight:bold">else</span>{
+         fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;Connection Established&#34;</span>)
+     }
+     <span style="color:#000;font-weight:bold">defer</span> db.<span style="color:#900;font-weight:bold">Close</span>()
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>现在，需要澄清一下：</p>
+<ol>
+<li>
+<p><code>sql.Open()</code> 中的第一个参数是数据库的驱动程序名称。此字符串使用 <code>database/sql</code> 注册，并且通常与包名称相同。还有其他驱动程序，如 sqlite3 github.com/mattn/go-sqlite3 和 postgres 包是github.com/lib/pg</p>
+</li>
+<li>
+<p>第二个参数是驱动指定的语法，它告诉驱动如何访问底层的数据存储。在这个例子中，我们连接位于我们本地数据为中的 <code>employeedb</code> 数据库。</p>
+<p>![root:root@tcp](<a href="http://mindbowser.com/wp-content/uploads/2017/09/13.png">http://mindbowser.com/wp-content/uploads/2017/09/13.png</a></p>
+</li>
+<li>
+<p>你应该始终检查并处理来自 <code>database/SQL</code> 操作的错误。</p>
+</li>
+</ol>
+<p>如果 <code>sql.DB</code> 的生命周期不应超出函数的范围，<code>defer db.Close()</code> 是惯用的。</p>
+<p>正如已经说过的一样，<code>sql.Open()</code> 并不建立任何到数据库的连接，也不验证驱动的参数。相反，它只是简单的数据库抽象。数据存储的第一个实现连接将在第一次实际需要的时候被创建。如果你想要检查数据库是否可以访问，使用 <code>db.Ping()</code> 并记得检查它的错误。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang">err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Ping</span>()
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    <span style="color:#998;font-style:italic">// do something here
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><p>即使在完成数据库对象时必须使用 <code>Close()</code> 数据库对象， <code>sql.DB</code> 对象也可以使用它。不要频繁使用 <code>db.Open()</code> 和 <code>db.Close()</code> 。而是为您需要访问的每个不同数据存储创建一个 <code>sql.DB</code> 对象，并保留它直到程序完成访问该数据存储。根据需要传递它，或者以某种方式在 全局范围提供它，但保持打开状态。</p>
+<p>现在，在连接打开之后，我们将看到从数据存储区检索结果集的操作。</p>
+<p>从数据库中获取数据</p>
+<p>Go 的 <code>database/sql</code> 函数名是有意义的。如果一个函数名包括 <em>Query</em> ,它意味要求数据库返回行集，即使它是空的。不返回行的语句不应使用Query函数；他们应该使用 <code>Exec()</code>。</p>
+<p>现在让我们看看如何查询数据库，使用结果。我们将在用户的表中查询 id 为 11 的用户并打印其 id 和名称。我们将使用 <code>rows.Scan()</code> 将结果分配给变量，一次一行。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#998;font-style:italic">// main.go
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+	_ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+	<span style="color:#d14">&#34;database/sql&#34;</span>
+	<span style="color:#d14">&#34;fmt&#34;</span>
+	<span style="color:#d14">&#34;log&#34;</span>
+)
+ 
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+	db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+	<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+		log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+	}<span style="color:#000;font-weight:bold">else</span>{
+		fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;Connection Established&#34;</span>)
+	}
+	<span style="color:#000;font-weight:bold">var</span> (
+		id <span style="color:#458;font-weight:bold">int</span>
+		name <span style="color:#458;font-weight:bold">string</span>
+	)
+	rows,err<span style="color:#000;font-weight:bold">:=</span>db.<span style="color:#900;font-weight:bold">Query</span>(<span style="color:#d14">&#34;select id, username from user where id = ?&#34;</span>, <span style="color:#099">1</span>)
+	<span style="color:#000;font-weight:bold">if</span> err<span style="color:#000;font-weight:bold">!=</span><span style="color:#000;font-weight:bold">nil</span>{
+		log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+	}
+	<span style="color:#000;font-weight:bold">defer</span> rows.<span style="color:#900;font-weight:bold">Close</span>()
+	<span style="color:#000;font-weight:bold">for</span> rows.<span style="color:#900;font-weight:bold">Next</span>(){
+		err<span style="color:#000;font-weight:bold">:=</span>rows.<span style="color:#900;font-weight:bold">Scan</span>(<span style="color:#000;font-weight:bold">&amp;</span>id,<span style="color:#000;font-weight:bold">&amp;</span>name)
+		<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+			log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+		}
+		fmt.<span style="color:#900;font-weight:bold">Println</span>(id, name)
+	}
+	err = rows.<span style="color:#900;font-weight:bold">Err</span>()
+	<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+		log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+	}
+	<span style="color:#000;font-weight:bold">defer</span> db.<span style="color:#900;font-weight:bold">Close</span>()
+}
+</code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>这里我们使用 <code>db.Query()</code> 发送一个查询到数据库</li>
+<li>我们延迟调用 <code>rows.Close()</code></li>
+<li>使用 <code>rows.Next()</code> 在行集上进行迭代</li>
+<li>使用 <code>rows.Scan()</code> 读取每一行的列到变量中</li>
+<li>在迭代行集后检查错误</li>
+</ul>
+<p>一些需要采取的预防措施</p>
+<ol>
+<li>
+<p>您应该始终在 <code>rows.Next()</code> 循环结束时检查错误。</p>
+</li>
+<li>
+<p>其次，只要有一个打开的结果集（由行表示），底层连接就会很忙，不能用于其他查询。这意味着它在连接池中是不可用的。如果用 <code>rows.Next()</code> 迭代所有行，最终你将读取最后一行同时 <code>rows.Next()</code> 将返回内部EOF错误并为您调用 <code>rows.Close()</code>。但由于某种原因，你退出该循环 - 提前返回等等，然后行不会关闭，并且连接保持打开状态。这很容易导致资源耗尽。</p>
+</li>
+<li>
+<p><code>rows.Close()</code> 是一个无害的，如果它已经关闭将是个空操作，，所以你可以多次调用它。但是请注意，我们首先检查错误，仅在没有错误时，调用 <code>rows.Close()</code>，以避免运行时出现混乱(runtime panic)。</p>
+</li>
+<li>
+<p>你应该始终执行 <code>defer rows.Close()</code>，即使您还调用 <code>rows.Close()</code>。即使没有错误，为了避免运行时恐慌。</p>
+</li>
+<li>
+<p>不要在循环中延迟调用</p>
+</li>
+</ol>
+<p><strong>准备查询</strong></p>
+<p>您应始终准备可被多次使用的查询。这些预准备语句具有在执行语句时将传递的参数。这比串联字符串（避免SQL注入攻击）要好得多。</p>
+<p>在 MySQL 中，参数占位符是 <code>?</code> 。而在 postgresql 中占位符是 <code>$N</code> ,其中 <code>N</code> 是一个数字。SQLite接受其中任何一个。在Oracle中，占位符以冒号和名称开头，如parameter1。我们在这里用 <code>?</code> 对于MySQL</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#998;font-style:italic">//main.go
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+    _ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+    <span style="color:#d14">&#34;database/sql&#34;</span>
+    <span style="color:#d14">&#34;fmt&#34;</span>
+    <span style="color:#d14">&#34;log&#34;</span>
+)
+ 
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+    db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }<span style="color:#000;font-weight:bold">else</span>{
+    	fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;Connection Established&#34;</span>)
+    }
+    <span style="color:#000;font-weight:bold">var</span> (
+        id <span style="color:#458;font-weight:bold">int</span>
+        name <span style="color:#458;font-weight:bold">string</span>
+    )
+
+    rows,err<span style="color:#000;font-weight:bold">:=</span>db.<span style="color:#900;font-weight:bold">Query</span>(<span style="color:#d14">&#34;select id, username from user where id = ?&#34;</span>, <span style="color:#099">2</span>)
+    <span style="color:#000;font-weight:bold">if</span> err<span style="color:#000;font-weight:bold">!=</span><span style="color:#000;font-weight:bold">nil</span>{
+   		log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+
+    <span style="color:#000;font-weight:bold">for</span> rows.<span style="color:#900;font-weight:bold">Next</span>(){
+    	err<span style="color:#000;font-weight:bold">:=</span>rows.<span style="color:#900;font-weight:bold">Scan</span>(<span style="color:#000;font-weight:bold">&amp;</span>id,<span style="color:#000;font-weight:bold">&amp;</span>name)
+        <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+       		log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+        }
+        fmt.<span style="color:#900;font-weight:bold">Println</span>(id, name)
+    }
+}
+
+</code></pre></td></tr></table>
+</div>
+</div><p>这里 <code>db.Query()</code> 准备，执行和关闭已经准备的语句 。</p>
+<p><strong>单行查询</strong></p>
+<p>如果一个查询返回至多一行，则可以使用一些冗长的样板代码的快捷方式。</p>
+<p>样例代码：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">var</span> name <span style="color:#458;font-weight:bold">string</span>
+err<span style="color:#000;font-weight:bold">:=</span>db.<span style="color:#900;font-weight:bold">QueryRow</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">select</span> username from user where id=<span style="color:#a61717;background-color:#e3d2d2">?”</span>)
+<span style="color:#000;font-weight:bold">if</span> err<span style="color:#000;font-weight:bold">!=</span><span style="color:#000;font-weight:bold">nil</span>{
+	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+fmt.<span style="color:#900;font-weight:bold">Println</span>(err)
+ 
+<span style="color:#998;font-style:italic">//Errors from the query are deferred until Scan() is called, and then are returned from that. You can also call QueryRow() on a prepared statement:
+</span><span style="color:#998;font-style:italic"></span> 
+stmt, err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Prepare</span>(<span style="color:#d14">&#34;select username from user where id = ?&#34;</span>)
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+<span style="color:#000;font-weight:bold">var</span> name <span style="color:#458;font-weight:bold">string</span>
+err = stmt.<span style="color:#900;font-weight:bold">QueryRow</span>(<span style="color:#099">1</span>).<span style="color:#900;font-weight:bold">Scan</span>(<span style="color:#000;font-weight:bold">&amp;</span>name)
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+fmt.<span style="color:#900;font-weight:bold">Println</span>(name)
+</code></pre></td></tr></table>
+</div>
+</div><p><strong>使用事务修改数据</strong></p>
+<p><strong>现在我们可以看下如何使用事务来修改数据。</strong></p>
+<p><strong>修改数据</strong></p>
+<p>使用 <code>Exec()</code> 与 INSERT,UPDATE,DELETE 或其他不先回行的语句一直使用</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#998;font-style:italic">//main.go
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+    _ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+    <span style="color:#d14">&#34;database/sql&#34;</span>
+    <span style="color:#d14">&#34;fmt&#34;</span>
+    <span style="color:#d14">&#34;log&#34;</span>
+)
+ 
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+    db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }<span style="color:#000;font-weight:bold">else</span>{
+   		fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;Connection Established&#34;</span>)
+    }
+    stmt, err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Prepare</span>(<span style="color:#d14">&#34;INSERT INTO user(id,username) VALUES(?,?)&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    res, err <span style="color:#000;font-weight:bold">:=</span> stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">33</span>,<span style="color:#d14">&#34;Ray Martin&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    lastId, err <span style="color:#000;font-weight:bold">:=</span> res.<span style="color:#900;font-weight:bold">LastInsertId</span>()
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    rowCnt, err <span style="color:#000;font-weight:bold">:=</span> res.<span style="color:#900;font-weight:bold">RowsAffected</span>()
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;ID = %d, affected = %d\n&#34;</span>, lastId, rowCnt)
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>此后执行一个语句，它给出了 <code>sql.Result</code>，它提供了对语句元数据的访问：受影响的最后插入的id和no.行数。</p>
+<p>如果您不想返回结果，请查看以下案例。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang">_, err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#d14">&#34;DELETE FROM users&#34;</span>) <span style="color:#998;font-style:italic">// GOOD APPROACH
+</span><span style="color:#998;font-style:italic"></span>_, err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Query</span>(<span style="color:#d14">&#34;DELETE FROM users&#34;</span>) <span style="color:#998;font-style:italic">// BAD APPROACH
+</span></code></pre></td></tr></table>
+</div>
+</div><p>如果我们在这里使用 <code>db.Query()</code> ，这两个并不一样。然后它将返回 <code>sql.Rows</code> 并且它将保持连接打开直到连接关闭。</p>
+<p><strong>使用事务</strong></p>
+<p>在Go, 一个事务是一个存储连接数据存储的对象。它确保所有关系到同一个连接的操作会被执行。</p>
+<p>这里，你需要调用 <code>db.Begin()</code>来开始一个事务，使用返回的 tx 变量的 <code>Commit()</code> 或 <code>Rollback()</code> 方法关闭它。在这个情况下，tx 从池中获取一个连接并存储它仅在事务中使用。</p>
+<p>在事务中创建的准备语句被绑定到同样的事务中。</p>
+<p>这里关于事务要记住的重要的事是：</p>
+<p>Tx 对象可以保持打开状态，保存连接池并不返回它。</p>
+<p>在事务工作中你应该关注不要使用 db 变量调用，确保所有的调用仅用你使用 <code>db.Begin()</code> 创建的 tx 变量，因为 db 不是一个事务，tx  才是事务。如果你试图使用 db 变量调用，则这些调用将不会在事务中起作用。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang">main.<span style="color:#000;font-weight:bold">go</span>
+<span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+    _ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+    <span style="color:#d14">&#34;database/sql&#34;</span>
+    <span style="color:#d14">&#34;log&#34;</span>
+)
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+    db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+        log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    tx,_<span style="color:#000;font-weight:bold">:=</span>db.<span style="color:#900;font-weight:bold">Begin</span>()
+    stmt, err <span style="color:#000;font-weight:bold">:=</span> tx.<span style="color:#900;font-weight:bold">Prepare</span>(<span style="color:#d14">&#34;INSERT INTO user(id,username) VALUES(?,?)&#34;</span>)
+    res,err<span style="color:#000;font-weight:bold">:=</span>stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">4</span>,<span style="color:#d14">&#34;Ricky&#34;</span>)
+    res,err=stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">5</span>,<span style="color:#d14">&#34;Peter&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err<span style="color:#000;font-weight:bold">!=</span><span style="color:#000;font-weight:bold">nil</span>{
+        tx.<span style="color:#900;font-weight:bold">Rollback</span>()
+        log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    tx.<span style="color:#900;font-weight:bold">Commit</span>()
+    log.<span style="color:#900;font-weight:bold">Println</span>(res) 
+}
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="使用-prepared-语句">使用 Prepared 语句</h2>
+<h3 id="prepared-语句和连接">Prepared 语句和连接</h3>
+<p>一个 prepared 语句是 一个带有参数占位符的语句，该参数占位符被发往数据库服务器可以被重复执行。这是一种性能优化以及安全措施；它可以防止攻击，例如SQL注入，攻击者劫持无人看守的字符串连接以产生恶意查询。</p>
+<p>在MySQL以及大多数数据库中，首先将SQL发送到服务器并要求使用占位符来准备绑定参数。 服务器以语句ID响应。 然后，您将执行命令发送到服务器，并向其传递语句ID和参数。</p>
+<p>在数据库级别，预准备语句被绑定到一个单独的 db 连接。典型的流程就像客户端将带有占位符的SQL语句发送到服务器准备，服务器以语句ID响应，然后客户端通过发送ID和语句来执行语句。</p>
+<p>在 Go 中，连接并不是直接的在 <code>database/sql</code> 包中暴露。你需要在 db 或 tx 对象上准备一个语句，并不是直接在数据库连接上。</p>
+<ol>
+<li>
+<p>当一个语句已经准备好，它在连接池中准备好。</p>
+</li>
+<li>
+<p>Stmt 对象会记住使用的是哪一个连接</p>
+</li>
+<li>
+<p>当你执行 Stmt，它尝试使用连接。如果连接不可用，它会从池中获取其他连接并使用 db 再次准备语句。</p>
+</li>
+</ol>
+<p>由于重新编写语句，因此db的并发使用率会很高，这可能会使连接忙碌。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#998;font-style:italic">//main.go
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+    _ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+    <span style="color:#d14">&#34;database/sql&#34;</span>
+    <span style="color:#d14">&#34;log&#34;</span>
+)
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+    db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+   	 log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+
+    stmt, err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Prepare</span>(<span style="color:#d14">&#34;INSERT INTO user(id,username) VALUES(?,?)&#34;</span>)
+    res,err<span style="color:#000;font-weight:bold">:=</span>stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">99</span>,<span style="color:#d14">&#34;John&#34;</span>)
+    res,err=stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">88</span>,<span style="color:#d14">&#34;Martin&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err<span style="color:#000;font-weight:bold">!=</span><span style="color:#000;font-weight:bold">nil</span>{
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    } 
+    log.<span style="color:#900;font-weight:bold">Println</span>(res) 
+}
+</code></pre></td></tr></table>
+</div>
+</div><h3 id="在事务中准备语句">在事务中准备语句</h3>
+<p>我已经说过准备语句在事务中被创建并仅绑定到同一个事务上。所以，当我们在 tx 对象上工作，这意味着我们的操作正在处理一个且唯一的连接。</p>
+<p>这意味在 tx 中被创建的准备语句不能从它上分开使用。同样在 db 上创建的预准备语句不可以在事务中使用，因为它们绑定的是不同的连接。</p>
+<p>要在tx中使用在事务外部准备的预准备语句，可以使用tx.Stmt()，它将从事务外部准备的语句创建新的特定于事务的语句</p>
+<p>它通过获取现有的预准备语句，设置与事务的连接并在每次执行时重新准备所有语句来完成此操作。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang">
+tx, err <span style="color:#000;font-weight:bold">:=</span> db.<span style="color:#900;font-weight:bold">Begin</span>()
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+<span style="color:#000;font-weight:bold">defer</span> tx.<span style="color:#900;font-weight:bold">Rollback</span>()
+stmt, err <span style="color:#000;font-weight:bold">:=</span> tx.<span style="color:#900;font-weight:bold">Prepare</span>(<span style="color:#d14">&#34;INSERT INTO user VALUES (?)&#34;</span>)
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+<span style="color:#000;font-weight:bold">defer</span> stmt.<span style="color:#900;font-weight:bold">Close</span>() <span style="color:#998;font-style:italic">// danger!
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; <span style="color:#099">10</span>; i<span style="color:#000;font-weight:bold">++</span> {
+    _, err = stmt.<span style="color:#900;font-weight:bold">Exec</span>(i)
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+	}
+}
+err = tx.<span style="color:#900;font-weight:bold">Commit</span>()
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+	log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+<span style="color:#998;font-style:italic">// stmt.Close() runs here!
+</span></code></pre></td></tr></table>
+</div>
+</div><p>以下是参数占位符语法，它们是特定于数据库的。考虑比较MySQL，PostgreSQL，Oracle。</p>
+<p>&ndash;|&ndash;|&ndash;</p>
+<p>MySQL | PostgreSQL | Oracle</p>
+<p>&ndash;|&ndash;|&mdash;-</p>
+<p>WHERE  col=? | WHERE col=$1 | WHERE col=:col</p>
+<p>&ndash;|&ndash;|&ndash;</p>
+<p>VALUES=(?,?,?) | VALUES($1,$2,$3) | VALUES(:val1,:val2,:val3)</p>
+<h2 id="错误处理">错误处理</h2>
+<p>几乎所有database/SQL类型的操作都返回错误作为最后一个值。你应该总是检查错误，永远不要忽略它们。您可能知道一些特殊的错误行为</p>
+<h3 id="迭代结果集错误">迭代结果集错误</h3>
+<p>请考虑如下代码：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">for</span> rows.<span style="color:#900;font-weight:bold">Next</span>() {
+    <span style="color:#998;font-style:italic">//...
+</span><span style="color:#998;font-style:italic"></span>}
+<span style="color:#000;font-weight:bold">if</span> err = rows.<span style="color:#900;font-weight:bold">Err</span>(); err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    <span style="color:#998;font-style:italic">// handle the error here
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><h3 id="关闭结果集错误">关闭结果集错误</h3>
+<p>如果过早地结束循环，你应该总是明确地关闭 <code>sql.Rows</code> ，如果循环正常结束或抛出异常它会自动关闭，但是你可能意外地执行此操作</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">for</span> rows.<span style="color:#900;font-weight:bold">Next</span>(){
+    <span style="color:#998;font-style:italic">//...
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#000;font-weight:bold">break</span> <span style="color:#998;font-style:italic">//whoops, rows is not closed! memory leak...
+</span><span style="color:#998;font-style:italic"></span>}
+<span style="color:#998;font-style:italic">// do the usual &#34;if err = rows.Err()&#34; [omitted here]...
+</span><span style="color:#998;font-style:italic">//it&#39;s always safe to [re?]close here:
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">if</span> err = rows.<span style="color:#900;font-weight:bold">Close</span>();err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    <span style="color:#998;font-style:italic">//but what should we do if there&#39;s an error?
+</span><span style="color:#998;font-style:italic"></span>    log.<span style="color:#900;font-weight:bold">Println</span>(err)
+}
+</code></pre></td></tr></table>
+</div>
+</div><p><code>rows.Close</code> 返回的错误是一般规则的唯一例外，它最好捕获并检查所有数据库操作中的错误。如果<code>rows.Close</code>返回错误，则不清楚应该怎么做。</p>
+<h3 id="queryrow-错误">QueryRow 错误</h3>
+<p>考虑下面获取单行的代码</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">var</span> name <span style="color:#458;font-weight:bold">string</span>
+err = db.<span style="color:#900;font-weight:bold">QueryRow</span>(<span style="color:#d14">&#34;select username from user where id=?&#34;</span>,<span style="color:#099">1</span>).<span style="color:#900;font-weight:bold">Scan</span>(<span style="color:#000;font-weight:bold">&amp;</span>name)
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+}
+fmt.<span style="color:#900;font-weight:bold">Println</span>(name)
+</code></pre></td></tr></table>
+</div>
+</div><p>如果没有 id=1 的用户怎么办？那将在结果中没有行，同时 <code>.Scan()</code> 不会扫描到结果到name变量中。接下来会发生什么？Go定义特殊的错误常量 <code>sql.ErrNoRows</code> ,当结果为空时，它由 <code>QueryRow()</code> 返回。这需要被处理。应用程序代码不会将空结果视为错误，如果您未检查错误是否为特殊常量，则会导致应用程序代码错误。</p>
+<p>查询中的错误将被推迟，直到调用 <code>Scan()</code> ，然后从中返回。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">var</span> name <span style="color:#458;font-weight:bold">string</span>
+err = db.<span style="color:#900;font-weight:bold">QueryRow</span>(<span style="color:#d14">&#34;select username from user where id = ?&#34;</span>,<span style="color:#099">1</span>).<span style="color:#900;font-weight:bold">Scan</span>(<span style="color:#000;font-weight:bold">&amp;</span>name)
+<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">==</span> sql.ErrNoRows {
+        <span style="color:#998;font-style:italic">// there were no rows, but otherwise no error occurred
+</span><span style="color:#998;font-style:italic"></span>    } <span style="color:#000;font-weight:bold">else</span> {
+        log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+}
+fmt.<span style="color:#900;font-weight:bold">Println</span>(name)
+</code></pre></td></tr></table>
+</div>
+</div><h3 id="nulls">NULLS</h3>
+<p>可空列可导致许多丑陋的代码。如果可以，请避免使用它们。如果没有，那么你需要使用 <code>database/sql</code>包中的特殊类型来处理它们或定义你自己的类型</p>
+<p>这里是 booleans, strings, integers 和 floats 的空类型，下面是如何使用它们。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#000;font-weight:bold">for</span> rows.<span style="color:#900;font-weight:bold">Next</span>(){
+    vart s sql.NullString
+    err <span style="color:#000;font-weight:bold">:=</span> rows.<span style="color:#900;font-weight:bold">Scan</span>(<span style="color:#000;font-weight:bold">&amp;</span>s)
+    <span style="color:#998;font-style:italic">//check err
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#000;font-weight:bold">if</span> s.Valid {
+        <span style="color:#998;font-style:italic">// use s.String
+</span><span style="color:#998;font-style:italic"></span>    } <span style="color:#000;font-weight:bold">else</span> {
+        <span style="color:#998;font-style:italic">// NULL value
+</span><span style="color:#998;font-style:italic"></span>    }
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>但是有一些限制和理由避免空列.</p>
+<ol>
+<li>
+<p>没有 <code>sql.NullUint64</code> 或 <code>sql.NullYouFavouriteType</code>。你需要自己定义这些。</p>
+</li>
+<li>
+<p>可空性可能很棘手，而且不会出现面向未来的问题。如果你认为某些东西不会为空，但你错了，你的程序就会崩溃。</p>
+</li>
+<li>
+<p>关于Go的一个好处是每个变量都有一个有用的默认零值。这不是可以为空的东西工作的方式。</p>
+</li>
+</ol>
+<h3 id="连接池">连接池</h3>
+<p>连接池由 <code>database/SQL</code> 包提供。连接池是维护一个连接池并重用这些连接的机制。它用于增强在数据库上执行命令的性能。它有助于重用相同的连接对象来服务于许多客户端请求。</p>
+<p>每次收到客户端请求时，都会在池中搜索可用连接，并且很可能它会获得空闲的连接。否则，传入的请求将排队或创建新连接并添加到池中(具体取决于池中已存在的连接数)。一旦请求完成使用连接，就会将其返回到分配给它的池中.</p>
+<p>有关连接池的一些有用信息：</p>
+<ol>
+<li>
+<p>连接池意味着在单个数据库上执行两个连续语句，可能会打开两个连接并分别执行它们。例如，<code>LOCK TABLES</code> 后跟一个可阻塞的 <code>INSERT</code>，因为 <code>INSERT</code> 是一个不保持表级锁的连接。</p>
+</li>
+<li>
+<p>连接在需要时被创建，并且池中没有空闲的连接。</p>
+</li>
+<li>
+<p>默认的，连接数没有限制。如果你试图一次做很多事，你可以创建任意数字的连接。这会导致数据库返回一个类似 &ldquo;too many connections&rdquo; 的错误。</p>
+</li>
+<li>
+<p>在 Go 1.1 或更高版本，你可以使用 <code>db.SetMaxIdleConns(N)</code> 来 限制池中空闲数目的连接。但是，这并不限制池的大小。</p>
+</li>
+<li>
+<p>在 Go 1.2.1 或更高版本，你可以使用 <code>db.SetMaxOpenConns(N)</code> 来限制数据库总共打开连接的个数，不幸的是，死锁(已修复)会阻止 <code>db.SetMaxOpenConns(N)</code> 在 1.2 中安全地使用。</p>
+</li>
+<li>
+<p>连接回收的速度非常快。</p>
+</li>
+<li>
+<p>保持一个 连接常时间空闲会导致问题。如果连接超时，请尝试使用 <code>db.SetMaxIdleConns(0)</code>，因为连接空闲时间过长。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-golang" data-lang="golang"><span style="color:#998;font-style:italic">//main.go
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">package</span> main
+<span style="color:#000;font-weight:bold">import</span> (
+    _ <span style="color:#d14">&#34;github.com/go-sql-driver/mysql&#34;</span>
+    <span style="color:#d14">&#34;database/sql&#34;</span>
+    <span style="color:#d14">&#34;log&#34;</span>
+)
+   
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+    db, err <span style="color:#000;font-weight:bold">:=</span> sql.<span style="color:#900;font-weight:bold">Open</span>(<span style="color:#d14">&#34;mysql&#34;</span>, <span style="color:#d14">&#34;root:root@tcp(127.0.0.1:3306)/employeedb&#34;</span>)
+   
+    <span style="color:#998;font-style:italic">// Connection Pooling methods
+</span><span style="color:#998;font-style:italic"></span>   
+    db.<span style="color:#900;font-weight:bold">SetConnMaxLifetime</span>(<span style="color:#099">500</span>)
+    db.<span style="color:#900;font-weight:bold">SetMaxIdleConns</span>(<span style="color:#099">50</span>)
+    db.<span style="color:#900;font-weight:bold">SetMaxOpenConns</span>(<span style="color:#099">10</span>)
+    db.<span style="color:#900;font-weight:bold">Stats</span>()
+   
+    <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+     log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    tx,_<span style="color:#000;font-weight:bold">:=</span>db.<span style="color:#900;font-weight:bold">Begin</span>()
+    stmt, err <span style="color:#000;font-weight:bold">:=</span> tx.<span style="color:#900;font-weight:bold">Prepare</span>(<span style="color:#d14">&#34;INSERT INTO user(id,username) VALUES(?,?)&#34;</span>)
+    res,err<span style="color:#000;font-weight:bold">:=</span>stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">4</span>,<span style="color:#d14">&#34;Abhijit&#34;</span>)
+    res,err=stmt.<span style="color:#900;font-weight:bold">Exec</span>(<span style="color:#099">5</span>,<span style="color:#d14">&#34;Yogesh&#34;</span>)
+    <span style="color:#000;font-weight:bold">if</span> err<span style="color:#000;font-weight:bold">!=</span><span style="color:#000;font-weight:bold">nil</span>{
+         tx.<span style="color:#900;font-weight:bold">Rollback</span>()
+     log.<span style="color:#900;font-weight:bold">Fatal</span>(err)
+    }
+    tx.<span style="color:#900;font-weight:bold">Commit</span>()
+    log.<span style="color:#900;font-weight:bold">Println</span>(res)
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>以下是我们发现有用的一些外部信息来源:</p>
+<p>√ <a href="http://golang.org/pkg/database/sql/database">http://golang.org/pkg/database/sql/database</a></p>
+<p>√ <a href="http://jmoiron.net/blog/gos-database-sql/">http://jmoiron.net/blog/gos-database-sql/</a></p>
+<p>√ <a href="http://jmoiron.net/blog/built-in-interfaces/">http://jmoiron.net/blog/built-in-interfaces/</a></p>
+</li>
+</ol>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/about/">关于我</a></li>
+        
+        <li><a href="/tools/">工具</a></li>
+        
+        <li><a href="/archives/">归档</a></li>
+        
+        <li><a href="/search/">搜索</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/mysql'>mysql</a></li>
+                
+                <li><a href='/tags/golang'>golang</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/" title="Go语言的垃圾回收 第三部分 GC速度">Go语言的垃圾回收 第三部分 GC速度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/" title="Go语言的垃圾回收：第二部分 GC追踪">Go语言的垃圾回收：第二部分 GC追踪</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-1-semantics/" title="Go语言的垃圾回收：第一部分 语义">Go语言的垃圾回收：第一部分 语义</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/go-known-network-collection/" title="Go知识网站集合">Go知识网站集合</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (22)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/http/">http (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (2)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/clean-architecture/">clean architecture</a>
+    
+    <a href="https://cyberwave.github.io/tags/collection/">collection</a>
+    
+    <a href="https://cyberwave.github.io/tags/cors/">cors</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/gc/">gc</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/http/">http</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/os/">os</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/timeout/">timeout</a>
+    
+    <a href="https://cyberwave.github.io/tags/trace/">trace</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

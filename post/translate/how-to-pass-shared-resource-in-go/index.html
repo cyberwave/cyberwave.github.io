@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>如何在Go项目中传递共享资源 | 听雪者的博客</title>
+    <meta property="og:title" content="如何在Go项目中传递共享资源 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2019-10-28T09:58:40&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2019-10-28T09:58:40&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="如何在Go项目中传递共享资源">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/how-to-pass-shared-resource-in-go/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#应用程序配置">应用程序配置</a></li>
+    <li><a href="#我们在应用的其余部分中使用该配置">我们在应用的其余部分中使用该配置</a></li>
+    <li><a href="#最重要的是">最重要的是</a></li>
+    <li><a href="#使用闭包替换结构体方法">使用闭包替换结构体方法</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">如何在Go项目中传递共享资源</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2019年10月28日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p><a href="https://itnext.io/how-i-pass-around-shared-resources-databases-configuration-etc-within-golang-projects-b27af4d8e8a">原文</a>
+在<a href="https://itnext.io/structuring-a-production-grade-rest-api-in-golang-c0229b3feedc">上一篇</a>文章，我们探索了可以被应用于任何 web 应用程序的整体架构，为 todo app 构建了一个静态 JSON API，在这个文章中，我们介绍每个 web 应用的重要部分。</p>
+<p>在大多数应用中，通常需要传递共享资源。这些共享资源可能是配置，数据库连接等。</p>
+<p>接下来我将在代码中展示。</p>
+<p>首先，我们来看一下上一文章离开的地方。我们有一个有路由和相应处理程序的项目。让我们从配置开始。在大多数项目中，需要从外部环境(配置文件，环境变量等)获得数据。这些数据通常包括像数据库连接字符串，数据库名和其他配置数据。</p>
+<h2 id="应用程序配置">应用程序配置</h2>
+<p>我喜欢使用名为 <a href="https://github.com/spf13/viper">viper</a> 的工具来处理我的配置。因为它已经出现很长时间了，并且它使用第三方包来免除我重写我自己的json/toml/yaml 的反序列化逻辑(虽然写起来并不困难)，但我也获得了一些额外的东西：</p>
+<ul>
+<li>为不在配置文件中的字段设置默认值</li>
+<li>从 JSON，TOML，YAML，HCL 和 Java 属性配置文件读取</li>
+<li>实时监视和重读配置文件(可选)</li>
+<li>从环境变量读取</li>
+<li>从远端配置文件系统(etcd 或 Consul)，并监视修改</li>
+<li>从命令行读取</li>
+<li>从 buffer 缓冲区读取</li>
+<li>设置显示的值</li>
+</ul>
+<p>我们来写一些代码：</p>
+<p>首先，我们创建一个放置初始化配置文件和第三方连接的包。即 <code>internal/config</code>。我们将配置文件包放置到 <code>internal</code>中，来阻止其他包使用这个配置包。</p>
+<p><em>Internal package is used to make specific packages unimportable.</em></p>
+<p>在这个配置包中，我们创建一个解析配置文件和返回一个包含该数据的结构体</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">type</span> Constants <span style="color:#000;font-weight:bold">struct</span> {
+  PORT <span style="color:#458;font-weight:bold">string</span>
+  Mongo <span style="color:#000;font-weight:bold">struct</span> {
+    URL <span style="color:#458;font-weight:bold">string</span>
+    DBName <span style="color:#458;font-weight:bold">string</span>
+  }
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">initViper</span>() (Constants, <span style="color:#458;font-weight:bold">error</span> ){
+  viper.<span style="color:#900;font-weight:bold">SetConfigName</span>(<span style="color:#d14">&#34;todo.config&#34;</span>) <span style="color:#998;font-style:italic">// 没有 .TOML 或 .YAML 扩展的配置文件名
+</span><span style="color:#998;font-style:italic"></span>  viper.<span style="color:#900;font-weight:bold">AddConfigPath</span>(<span style="color:#d14">&#34;.&#34;</span>) <span style="color:#998;font-style:italic">//从根目录搜索配置文件
+</span><span style="color:#998;font-style:italic"></span>  err <span style="color:#000;font-weight:bold">:=</span> viper.<span style="color:#900;font-weight:bold">ReadInConfig</span>() <span style="color:#998;font-style:italic">// 找到并读取配置文件
+</span><span style="color:#998;font-style:italic"></span>  <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {             <span style="color:#998;font-style:italic">// 处理读取配置文件的错误
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#000;font-weight:bold">return</span> Constants{}, err
+  }
+  viper.<span style="color:#900;font-weight:bold">SetDefault</span>(<span style="color:#d14">&#34;PORT&#34;</span>, <span style="color:#d14">&#34;8080&#34;</span>)
+  
+  <span style="color:#000;font-weight:bold">var</span> constants Constants
+  err = viper.<span style="color:#900;font-weight:bold">Unmarshal</span>(<span style="color:#000;font-weight:bold">&amp;</span>constants)
+  <span style="color:#000;font-weight:bold">return</span> constants, err
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>这个代码的作用相当简单：</p>
+<ul>
+<li><code>viper.SetConfigName(&quot;todo.config&quot;)</code>使 viper 期待一个名为 <code>todo.config</code> 的配置文件，通常以 <code>.toml</code> 或 <code>.yaml</code> 为扩展名。</li>
+<li><code>viper.AddConfigPath(&quot;.&quot;)</code> 使 viper 从当前/main 目录搜索配置文件。但是你多个拥有不同路径 <code>viper.AddConfigPath(&quot;xxx&quot;)</code> 的实例，以使 viper 可以从它们中搜索配置文件。</li>
+<li><code>viper.SetDefault</code> 设置 PORT 的默认值为 8080，即使配置文件为空，或 PORT 并没有在配置文件中定义.</li>
+<li><code>viper.Unmarshal</code> 将从配置文件中读取的数据解组为常量结构的最重要工作。</li>
+</ul>
+<p>我们的配置文件看起来像：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">PORT=<span style="color:#099">3000</span>
+[Mongo]
+	URL = <span style="color:#d14">&#34;&lt;content goes here&gt;&#34;</span>
+	DBName = <span style="color:#d14">&#34;&lt;content goes here&gt;&#34;</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>接下来， 我们会创建一个数据库连接实例，并将它放置到一个配置结构体中，它将被传递给我们的 app，需要数据库实例的模块，或其他配置数据。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">type</span> Config <span style="color:#000;font-weight:bold">struct</span> {
+  Constants
+  Database <span style="color:#000;font-weight:bold">*</span>mgo.Database
+}
+
+<span style="color:#998;font-style:italic">// New is used to generate a configuration instance which will be passed around the codebase
+</span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">New</span>() (<span style="color:#000;font-weight:bold">*</span>Config, <span style="color:#458;font-weight:bold">error</span>) {
+  config <span style="color:#000;font-weight:bold">:=</span> Config{}
+  constants, err <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">initViper</span>()
+  config.Constants = constants
+  <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+  	<span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>config, err
+  }
+  dbSession, err <span style="color:#000;font-weight:bold">:=</span> mgo.<span style="color:#900;font-weight:bold">Dial</span>(config.Constants.Mongo.URL)
+  <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+  	<span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>config, err
+  }
+  config.Database = dbSession.<span style="color:#900;font-weight:bold">DB</span>(config.Constants.Mongo.DBName)
+  <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>config, err
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>需要注意的是：</p>
+<ul>
+<li>我们将 <code>initViper</code> 返回的值 constants 存储在 <code>config</code> ß实例中(该实例将被传递到应用程序中)。</li>
+<li>我们在 mongodb 连接中使用这些常数(DB URL 和 DBName)</li>
+<li>我们将数据库连接存储在 <code>config</code> 实例中</li>
+<li>返回一个指向 <code>config</code> 实例的指针(我们将传递一个指向该配置的指针)</li>
+</ul>
+<h2 id="我们在应用的其余部分中使用该配置">我们在应用的其余部分中使用该配置</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Routes</span>( configuration <span style="color:#000;font-weight:bold">*</span>config.Config) <span style="color:#000;font-weight:bold">*</span>chi.Mux {
+  <span style="color:#000;font-weight:bold">...</span>
+  router.<span style="color:#900;font-weight:bold">Route</span>(<span style="color:#d14">&#34;/v1&#34;</span>, <span style="color:#000;font-weight:bold">func</span>(r chi.Router){
+    r.<span style="color:#900;font-weight:bold">Mount</span>(<span style="color:#d14">&#34;/api/todo&#34;</span>, todo.<span style="color:#900;font-weight:bold">New</span>(configuration).<span style="color:#900;font-weight:bold">Routes</span>())
+  })
+  <span style="color:#000;font-weight:bold">return</span> router
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  configuration, err <span style="color:#000;font-weight:bold">:=</span> config.<span style="color:#900;font-weight:bold">New</span>()
+  <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    log.<span style="color:#900;font-weight:bold">Panicln</span>(<span style="color:#d14">&#34;Configuration error&#34;</span>, err)
+  }
+  router <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">Routes</span>(configuration)
+  <span style="color:#000;font-weight:bold">...</span>
+  <span style="color:#000;font-weight:bold">...</span>
+  log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;Serving application at PORT :&#34;</span> <span style="color:#000;font-weight:bold">+</span> configuration.Constants.PORT)
+  log.<span style="color:#900;font-weight:bold">Fatal</span>(http.<span style="color:#900;font-weight:bold">ListenAndServe</span>(<span style="color:#d14">&#34;:&#34;</span><span style="color:#000;font-weight:bold">+</span>configuration.Constants.PORT, router))
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>注意的是：</p>
+<ul>
+<li>我们在主函数中调用 <code>config.New()</code> ，获得一个配置实例(实际上是个指针)</li>
+<li>我们使用这个配置来访问配置文件的 PORT 地址</li>
+<li>我们调整位于 <code>main.go</code> 中的 Routes 函数接收一个 configuration 作为它的参数</li>
+</ul>
+<h2 id="最重要的是">最重要的是</h2>
+<p>我们在 <code>todo</code> 特性包中现在有了 <code>New()</code> 函数。我们将 configuration 传递给 New()，它返回一个允许我们调用 Routes 方法的类型。</p>
+<p><code> r.Mount(&quot;/api/todo&quot;, todo.New(configuration).Routes())</code></p>
+<p>现在实际的代码是：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">type</span> Config <span style="color:#000;font-weight:bold">struct</span> {
+  <span style="color:#000;font-weight:bold">*</span>config.Config
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">New</span>(configuration <span style="color:#000;font-weight:bold">*</span>config.Config) <span style="color:#000;font-weight:bold">*</span>Config {
+  <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>Config{configuration}
+}
+
+<span style="color:#000;font-weight:bold">func</span> (config <span style="color:#000;font-weight:bold">*</span>Config) <span style="color:#900;font-weight:bold">Routes</span>() <span style="color:#000;font-weight:bold">*</span>chi.Mux {
+  router <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">NewRouter</span>()
+  router.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, config.GetATodo)
+  router.<span style="color:#900;font-weight:bold">Delete</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, config.DeleteTodo)
+  router.<span style="color:#900;font-weight:bold">Post</span>(<span style="color:#d14">&#34;/&#34;</span>, config.CreateTodo)
+  router.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/&#34;</span>, config.GetAllTodos)
+  <span style="color:#000;font-weight:bold">return</span> router
+}
+<span style="color:#000;font-weight:bold">...</span>
+<span style="color:#000;font-weight:bold">func</span> (config <span style="color:#000;font-weight:bold">*</span>Config) <span style="color:#900;font-weight:bold">GetATodo</span>(w http.ResponseWriter, r <span style="color:#000;font-weight:bold">*</span>http.Request){
+  todoID <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">URLParam</span>(r,<span style="color:#d14">&#34;todoID&#34;</span>)
+  todos <span style="color:#000;font-weight:bold">:=</span> Todo{
+    Slug: todoID,
+    Title: <span style="color:#d14">&#34;Hello world&#34;</span>,
+    Body: <span style="color:#d14">&#34;Heloo world from planet earth&#34;</span>,
+  }
+  render.<span style="color:#900;font-weight:bold">JSON</span>(w, r, todos) <span style="color:#998;font-style:italic">// A chi router helper for serializing and returning json
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><p>注意的是：</p>
+<ul>
+<li>在 Go 中，我们不能在导入类型中定义方法，所以我们在本地定义的 config 类型中嵌入一个导入类型。</li>
+<li>现在每一个处理函数都是 config 类型的方法，所以现在它们可以访问位于配置文件中的数据，以及满足其持久性需要的数据库连接。</li>
+<li><strong>理解在些示例中我们使用的是 mongoDB 数据库，这个连接可以是任何源，redis 数据库，度量引擎的连接，以及第三方服务者的连接等等</strong>。</li>
+</ul>
+<p>在上面的例子中， 我们制作了 Config 结构体的 Handlers 方法，但这并不是必须的。我们来研究另一种替代方法。与使用结构体的方法不同的是，我们使用了闭包(是的，闭包也可以在 golang 中使用)</p>
+<h2 id="使用闭包替换结构体方法">使用闭包替换结构体方法</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Routes</span>(configuration <span style="color:#000;font-weight:bold">*</span>config.Config) <span style="color:#000;font-weight:bold">*</span>chi.Mux{
+  <span style="color:#000;font-weight:bold">...</span>
+  router.<span style="color:#900;font-weight:bold">Route</span>(<span style="color:#d14">&#34;/v1&#34;</span>, <span style="color:#000;font-weight:bold">func</span>(r chi.Router){
+    r.<span style="color:#900;font-weight:bold">Mount</span>(<span style="color:#d14">&#34;/api/todo&#34;</span>, todo.<span style="color:#900;font-weight:bold">Routes</span>(configuration))
+  })
+  <span style="color:#000;font-weight:bold">return</span> router
+}
+
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  configuration, err <span style="color:#000;font-weight:bold">:=</span> config.<span style="color:#900;font-weight:bold">New</span>()
+  <span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+    log.<span style="color:#900;font-weight:bold">Panicln</span>(<span style="color:#d14">&#34;Configuration error&#34;</span>, err)
+  }
+  router <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">Routes</span>(configuration)
+  <span style="color:#000;font-weight:bold">...</span>
+  <span style="color:#000;font-weight:bold">...</span>
+  log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;Serving application at PORT :&#34;</span> <span style="color:#000;font-weight:bold">+</span> configuration.Constants.PORT)
+  log.<span style="color:#900;font-weight:bold">Fatal</span>(http.<span style="color:#900;font-weight:bold">ListenAndServe</span>(<span style="color:#d14">&#34;:&#34;</span> <span style="color:#000;font-weight:bold">+</span> configuration.Constants.PORT, router))
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>以防你有点儿困惑，在上面片断中最重要的一行是:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">r.<span style="color:#900;font-weight:bold">Mount</span>(<span style="color:#d14">&#34;/api/todo&#34;</span>, todo.<span style="color:#900;font-weight:bold">Routes</span>(configuration))
+</code></pre></td></tr></table>
+</div>
+</div><p>我们做的就是调整我们之前安装 routes 的方法。因此，我们没有使用New函数进行初始化，而是将配置直接传递给Routes函数(不再是方法)。</p>
+<p>接下来，调整我们的 Routes 方法来接受这个 configuration，它等价于<strong>调整我们的处理程序成为闭包来接受configuration</strong>，然后它返回一个处理请求的 handler(该handler也可以访问 configuration 参数，由于闭包的魔法)。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">Routes</span>(configuration <span style="color:#000;font-weight:bold">*</span>config.Config) <span style="color:#000;font-weight:bold">*</span>chi.Mux {
+  router <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">NewRouter</span>()
+  rotuer.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, <span style="color:#900;font-weight:bold">GetATodo</span>(configuration))
+  router.<span style="color:#900;font-weight:bold">Delete</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, <span style="color:#900;font-weight:bold">DeleteTodo</span>(configuration))
+  router.<span style="color:#900;font-weight:bold">Post</span>(<span style="color:#d14">&#34;/&#34;</span>, <span style="color:#900;font-weight:bold">CreateTodo</span>(configuration))
+  router.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/&#34;</span>, <span style="color:#900;font-weight:bold">GetAllTodos</span>(configuration))
+  <span style="color:#000;font-weight:bold">return</span> router
+}
+<span style="color:#000;font-weight:bold">...</span>
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">GetATodo</span>(configuration <span style="color:#000;font-weight:bold">*</span>config.Config){
+  <span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">func</span>(w http.ResponseWriter, r <span style="color:#000;font-weight:bold">*</span>http.Request){
+    todoID <span style="color:#000;font-weight:bold">:=</span> chi.<span style="color:#900;font-weight:bold">URLParam</span>(r, <span style="color:#d14">&#34;todoID&#34;</span>)
+    todos <span style="color:#000;font-weight:bold">:=</span> Todo{
+      Slug: todoID,
+      Title: <span style="color:#d14">&#34;Hello world from PORT: &#34;</span> <span style="color:#000;font-weight:bold">+</span> configuration.Constants.PORT,
+      Body: <span style="color:#d14">&#34;Heloo world from planet earth&#34;</span>,
+    }
+    render.<span style="color:#900;font-weight:bold">JSON</span>(w, r, todos)
+  }
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>注意的是：</p>
+<ul>
+<li>
+<p>较小的代码量。使用闭包，代码感觉更紧凑（我认为很优雅）</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">router.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;/{todoID}&#34;</span>, <span style="color:#900;font-weight:bold">GetATodo</span>(configuration))
+</code></pre></td></tr></table>
+</div>
+</div></li>
+<li>
+<p>闭包可以减少一点儿不自然，崮为你可能会遇到以下情况</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#900;font-weight:bold">functionA</span>(argA)(argB)(argC)
+</code></pre></td></tr></table>
+</div>
+</div></li>
+</ul>
+<p>该示例是使用闭包的合适的代码。functionA 接受 argA，并返回一个接受 argB 的函数，同样地它返回一个接受 argC 的函数，它可以返回任何内容(甚至是另一个函数)</p>
+<p>但是我仍然认为闭包是用于代码编写的强大工具，在代码可读性和可维护性方面，在收益大于危害时使用它们。</p>
+<p>代码 <a href="https://github.com/tonyalaribe/todoapi/tree/master/withmongodb?source=post_page-----b27af4d8e8a----------------------">github</a></p>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/golang-database-sql/">Go中使用database/sql</a></li>
+        
+        <li><a href="/about/">关于我</a></li>
+        
+        <li><a href="/tools/">工具</a></li>
+        
+        <li><a href="/archives/">归档</a></li>
+        
+        <li><a href="/search/">搜索</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/" title="Go语言的垃圾回收 第三部分 GC速度">Go语言的垃圾回收 第三部分 GC速度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/" title="Go语言的垃圾回收：第二部分 GC追踪">Go语言的垃圾回收：第二部分 GC追踪</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-1-semantics/" title="Go语言的垃圾回收：第一部分 语义">Go语言的垃圾回收：第一部分 语义</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/go-known-network-collection/" title="Go知识网站集合">Go知识网站集合</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (22)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/http/">http (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (2)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/clean-architecture/">clean architecture</a>
+    
+    <a href="https://cyberwave.github.io/tags/collection/">collection</a>
+    
+    <a href="https://cyberwave.github.io/tags/cors/">cors</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/gc/">gc</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/http/">http</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/os/">os</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/timeout/">timeout</a>
+    
+    <a href="https://cyberwave.github.io/tags/trace/">trace</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

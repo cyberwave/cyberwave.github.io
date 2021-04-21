@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>os on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/os/</link>
+    <description>Recent content in os on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Mon, 18 Nov 2019 14:28:30 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/os/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>开发人员需要知道的10个操作系统概念</title>
+      <link>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</link>
+      <pubDate>Mon, 18 Nov 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</guid>
+      <description>原文 你会说二进制吗？你能理解机器代码吗？如果我给你一张满是 0 和 1 的表，你能告诉我这是 什么意思吗？如果你要去一个从未去过的国家/地区，使用的语</description>
+    </item>
+    
+  </channel>
+</rss>

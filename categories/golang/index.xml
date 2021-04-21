@@ -142,5 +142,68 @@
       <description>原文：🚀 Visualizing memory management in Golang 在本章中， 我们将研究 Go 编程语言（golang）的内存管理。Go 是一种静态类型化和编译的语言，和 C/C++ 和 Rust一样。因此，Go</description>
     </item>
     
+    <item>
+      <title>开发人员需要知道的10个操作系统概念</title>
+      <link>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</link>
+      <pubDate>Mon, 18 Nov 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</guid>
+      <description>原文 你会说二进制吗？你能理解机器代码吗？如果我给你一张满是 0 和 1 的表，你能告诉我这是 什么意思吗？如果你要去一个从未去过的国家/地区，使用的语</description>
+    </item>
+    
+    <item>
+      <title>标准net/http将破坏你的生产环境</title>
+      <link>https://cyberwave.github.io/post/golang-net-http-timeout/</link>
+      <pubDate>Thu, 07 Nov 2019 11:54:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/golang-net-http-timeout/</guid>
+      <description>另一个标题net/http超时介绍 原文发表在blog.simon-frey.eu 首先，正如你已经从标题中认识到，这篇博客文章是站在巨人的肩上</description>
+    </item>
+    
+    <item>
+      <title>跨域相关</title>
+      <link>https://cyberwave.github.io/post/translate/cors/</link>
+      <pubDate>Wed, 06 Nov 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/cors/</guid>
+      <description>原文接接 跨域资源共享(Cross-Origin Resource Sharing) 跨域资源共享(CORS)是一种机制，它使用额外的 HTTP 头来告诉浏览器使运行于一个源上的 web 应用程</description>
+    </item>
+    
+    <item>
+      <title>尝试在Go中整理架构</title>
+      <link>https://cyberwave.github.io/post/translate/clean-arch-summary-review/</link>
+      <pubDate>Tue, 29 Oct 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/clean-arch-summary-review/</guid>
+      <description>[原文] Trying Clean Architecture on Golang 在阅读鲍伯大叔的 清理架构概念 之后，我尝试使用 Golang 实现它。这和我在我们公司使用的架构类似，Kurio - App Berita Indonesia，</description>
+    </item>
+    
+    <item>
+      <title>如何用go构建生产级rest api</title>
+      <link>https://cyberwave.github.io/post/translate/structure-production-rest-api-in-go/</link>
+      <pubDate>Tue, 29 Oct 2019 09:58:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/structure-production-rest-api-in-go/</guid>
+      <description>原文 有个神话&amp;ndash;使用golang写API，不像其他语言那样简单且惯用。实际上， 我遇到了很多REST API 代码库，它们使用了如此多的抽象</description>
+    </item>
+    
+    <item>
+      <title>如何在Go项目中传递共享资源</title>
+      <link>https://cyberwave.github.io/post/translate/how-to-pass-shared-resource-in-go/</link>
+      <pubDate>Mon, 28 Oct 2019 09:58:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/how-to-pass-shared-resource-in-go/</guid>
+      <description>原文 在上一篇文章，我们探索了可以被应用于任何 web 应用程序的整体架构，为 todo app 构建了一个静态 JSON API，在这个文章中，我们介绍每个 web 应用的重要部分。</description>
+    </item>
+    
+    <item>
+      <title>Go中使用database/sql</title>
+      <link>https://cyberwave.github.io/post/golang-database-sql/</link>
+      <pubDate>Mon, 01 Oct 2018 11:54:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/golang-database-sql/</guid>
+      <description>Go Database/SQL 原文 在我们Golang教程的第8章, 我们讨论了 &amp;ldquo;Common Utilities in Project Golang&amp;rdquo;。 在本章节，我们来探索 ’Go-database/SQL‘</description>
+    </item>
+    
   </channel>
 </rss>

@@ -70,5 +70,50 @@
       <description>楔子 这是一个由四部分组成的系列文章的第一篇，该系列文章将提供对Go中指针、堆栈、堆、转义分析和值/指针语义背后的机制和设计的理解。这篇文章主</description>
     </item>
     
+    <item>
+      <title>开发人员需要知道的10个操作系统概念</title>
+      <link>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</link>
+      <pubDate>Mon, 18 Nov 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</guid>
+      <description>原文 你会说二进制吗？你能理解机器代码吗？如果我给你一张满是 0 和 1 的表，你能告诉我这是 什么意思吗？如果你要去一个从未去过的国家/地区，使用的语</description>
+    </item>
+    
+    <item>
+      <title>跨域相关</title>
+      <link>https://cyberwave.github.io/post/translate/cors/</link>
+      <pubDate>Wed, 06 Nov 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/cors/</guid>
+      <description>原文接接 跨域资源共享(Cross-Origin Resource Sharing) 跨域资源共享(CORS)是一种机制，它使用额外的 HTTP 头来告诉浏览器使运行于一个源上的 web 应用程</description>
+    </item>
+    
+    <item>
+      <title>尝试在Go中整理架构</title>
+      <link>https://cyberwave.github.io/post/translate/clean-arch-summary-review/</link>
+      <pubDate>Tue, 29 Oct 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/clean-arch-summary-review/</guid>
+      <description>[原文] Trying Clean Architecture on Golang 在阅读鲍伯大叔的 清理架构概念 之后，我尝试使用 Golang 实现它。这和我在我们公司使用的架构类似，Kurio - App Berita Indonesia，</description>
+    </item>
+    
+    <item>
+      <title>如何用go构建生产级rest api</title>
+      <link>https://cyberwave.github.io/post/translate/structure-production-rest-api-in-go/</link>
+      <pubDate>Tue, 29 Oct 2019 09:58:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/structure-production-rest-api-in-go/</guid>
+      <description>原文 有个神话&amp;ndash;使用golang写API，不像其他语言那样简单且惯用。实际上， 我遇到了很多REST API 代码库，它们使用了如此多的抽象</description>
+    </item>
+    
+    <item>
+      <title>如何在Go项目中传递共享资源</title>
+      <link>https://cyberwave.github.io/post/translate/how-to-pass-shared-resource-in-go/</link>
+      <pubDate>Mon, 28 Oct 2019 09:58:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/how-to-pass-shared-resource-in-go/</guid>
+      <description>原文 在上一篇文章，我们探索了可以被应用于任何 web 应用程序的整体架构，为 todo app 构建了一个静态 JSON API，在这个文章中，我们介绍每个 web 应用的重要部分。</description>
+    </item>
+    
   </channel>
 </rss>

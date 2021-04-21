@@ -16,5 +16,14 @@
       <description>[译文] Understanding MySQL the Access Denied error in or outside a Docker container MySQL基于三个数据对用户身份认证：用户名，连接的另一端的IP地址或域名和提供的密码。它在 mysql.user 表搜索这三个值</description>
     </item>
     
+    <item>
+      <title>Go中使用database/sql</title>
+      <link>https://cyberwave.github.io/post/golang-database-sql/</link>
+      <pubDate>Mon, 01 Oct 2018 11:54:40 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/golang-database-sql/</guid>
+      <description>Go Database/SQL 原文 在我们Golang教程的第8章, 我们讨论了 &amp;ldquo;Common Utilities in Project Golang&amp;rdquo;。 在本章节，我们来探索 ’Go-database/SQL‘</description>
+    </item>
+    
   </channel>
 </rss>
