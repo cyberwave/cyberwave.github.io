@@ -71,6 +71,24 @@
     </item>
     
     <item>
+      <title>黑客Go中的位操作</title>
+      <link>https://cyberwave.github.io/post/translate/bit-hacking-with-go/</link>
+      <pubDate>Sat, 09 May 2020 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/bit-hacking-with-go/</guid>
+      <description>在内存非常昂贵，处理器还处于奔腾系列的计算机旧年代，直接进行位操作是处理信息的首选（在某情情况下是唯一的选项）。如今，直接的位操作在许多计算</description>
+    </item>
+    
+    <item>
+      <title>Go运行时调度</title>
+      <link>https://cyberwave.github.io/post/translate/go-runtime-scheduler/</link>
+      <pubDate>Tue, 24 Mar 2020 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/go-runtime-scheduler/</guid>
+      <description>Illustrated Tales of Go Runtime Scheduler 以 goroutines的形式进行的Go语言的并发对于写现代并发软件是一种非常方便的方法。但是您的Go程序是如何有效地运行这些 goroutines 的</description>
+    </item>
+    
+    <item>
       <title>开发人员需要知道的10个操作系统概念</title>
       <link>https://cyberwave.github.io/post/translate/developer-need-to-remeber-10-os-concepts/</link>
       <pubDate>Mon, 18 Nov 2019 14:28:30 +0800</pubDate>

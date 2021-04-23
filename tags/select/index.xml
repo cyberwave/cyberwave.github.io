@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>select on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/select/</link>
+    <description>Recent content in select on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Wed, 04 Dec 2019 14:28:30 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/select/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Go中的select示例</title>
+      <link>https://cyberwave.github.io/post/go-select/</link>
+      <pubDate>Wed, 04 Dec 2019 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/go-select/</guid>
+      <description>5个switch 语句模式 基本开关默认 switch 语句运行第一种情况属于条件表达式 case 从上到下被评估，在case成功时停止 如果没有匹配任何 case 并且有一个默认</description>
+    </item>
+    
+  </channel>
+</rss>

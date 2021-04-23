@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>黑客Go中的位操作 | 听雪者的博客</title>
+    <meta property="og:title" content="黑客Go中的位操作 - 听雪者的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2020-05-09T14:28:30&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2020-05-09T14:28:30&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,区块链">
+    <meta name="description" content="黑客Go中的位操作">
+        
+    <meta name="author" content="听雪者">
+    <meta property="og:url" content="https://cyberwave.github.io/post/translate/bit-hacking-with-go/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+    
+    
+    
+        <link rel="stylesheet" href='/css/douban.css'>
+    
+        <link rel="stylesheet" href='/css/other.css'>
+    
+</head>
+
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://cyberwave.github.io">
+                        听雪者的博客
+                    </a>
+                
+                <p class="description">你知道的越多，你知道不知道的就越多</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://cyberwave.github.io">首页</a>
+                    
+                    <a  href="https://cyberwave.github.io/tools/" title="工具">工具</a>
+                    
+                    <a  href="https://cyberwave.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://cyberwave.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#-运算符">&amp; 运算符</a></li>
+    <li><a href="#-操作符">| 操作符</a></li>
+    <li><a href="#位作为配置">位作为配置</a></li>
+    <li><a href="#异或--操作">异或 ^ 操作</a></li>
+    <li><a href="#-按位补码not">^ 按位补码（NOT)</a></li>
+    <li><a href="#-运算符-1">&amp;^ 运算符</a></li>
+    <li><a href="#左移--和-右移--操作符">左移 &laquo; 和 右移 &raquo; 操作符</a></li>
+    <li><a href="#关于算术移位的注记">关于算术移位的注记</a></li>
+    <li><a href="#结论">结论</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">黑客Go中的位操作</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2020年5月9日
+        </date>
+        
+        <div class="post-meta">
+            <span>|</span>
+            
+            <span class="meta-category"><a href='/categories/golang'>golang</a></span>
+            
+        </div>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>在内存非常昂贵，处理器还处于奔腾系列的计算机旧年代，直接进行位操作是处理信息的首选（在某情情况下是唯一的选项）。如今，直接的位操作在许多计算用例中仍然是至关重要的，例如底导的系统编程，图像处理，密码学等。</p>
+<p>Go编程语言支持几种位运算符，包括：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-javascript" data-lang="javascript"><span style="color:#000;font-weight:bold">&amp;</span> 按位与
+<span style="color:#000;font-weight:bold">|</span> 按位或
+<span style="color:#000;font-weight:bold">^</span> 按位异或
+<span style="color:#000;font-weight:bold">&amp;^</span> AND NOT
+<span style="color:#000;font-weight:bold">&lt;&lt;</span> 左移
+<span style="color:#000;font-weight:bold">&gt;&gt;</span> 右移
+</code></pre></td></tr></table>
+</div>
+</div><p>本文的其他部分将详细讨论每个运算符，并包括如何使用的示例。</p>
+<h2 id="-运算符">&amp; 运算符</h2>
+<p>在Go中，<code>&amp;</code>运算符在两个整数操作数之间执行按位与运算。与运算（AND）具有以下属性：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-javascript" data-lang="javascript">给出操作数a,b
+AND(a,b)<span style="color:#000;font-weight:bold">=</span><span style="color:#099">1</span>;当前仅当 a <span style="color:#000;font-weight:bold">=</span> b <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span> 时才为1<span style="color:#a61717;background-color:#e3d2d2">，</span>否则为0
+</code></pre></td></tr></table>
+</div>
+</div><p><strong>AND</strong>运算符有一个很好的作用，即有选择地将整数值的位清零。例如，我们可以使用 <code>&amp;</code>运算符将最后4个有效位（LSB - least significant bits)清除（设置为零）置零。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  <span style="color:#000;font-weight:bold">var</span> x <span style="color:#458;font-weight:bold">uint8</span> = <span style="color:#099">0xAC</span> <span style="color:#998;font-style:italic">// x = 10101100
+</span><span style="color:#998;font-style:italic"></span>  x = x <span style="color:#000;font-weight:bold">&amp;</span> <span style="color:#099">0xF0</span>  <span style="color:#998;font-style:italic">// x = 10100000
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><p>所有的二进制运算符都运行简写算命赋值形式。例如，上面的例子可以写成：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  <span style="color:#000;font-weight:bold">var</span> x <span style="color:#458;font-weight:bold">uint8</span> = <span style="color:#099">0xAC</span> <span style="color:#998;font-style:italic">// x = 10101100
+</span><span style="color:#998;font-style:italic"></span>  x <span style="color:#000;font-weight:bold">&amp;=</span> <span style="color:#099">0xF0</span> <span style="color:#998;font-style:italic">// x = 10100000
+</span><span style="color:#998;font-style:italic"></span>}
+</code></pre></td></tr></table>
+</div>
+</div><p>另外一个简单的技巧是测试一个数字是奇数不是偶数。这是因为当一个数字的最低有效位被设置为1时，它是奇数。我们可以使用 <code>&amp;</code> 操作符与一个整数值 1 进行按位与操作。如果它的结果是1，则原数字为奇数。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">import</span> (
+    <span style="color:#a61717;background-color:#e3d2d2">“</span>fmt<span style="color:#a61717;background-color:#e3d2d2">”</span>
+    <span style="color:#a61717;background-color:#e3d2d2">“</span>math<span style="color:#000;font-weight:bold">/</span>rand<span style="color:#a61717;background-color:#e3d2d2">”</span>
+)
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">for</span> x <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; x &lt; <span style="color:#099">100</span>; x<span style="color:#000;font-weight:bold">++</span> {
+        num <span style="color:#000;font-weight:bold">:=</span> rand.<span style="color:#900;font-weight:bold">Int</span>()
+        <span style="color:#000;font-weight:bold">if</span> num<span style="color:#000;font-weight:bold">&amp;</span><span style="color:#099">1</span> <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">1</span> {
+            fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span>d is odd<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, num)
+        } <span style="color:#000;font-weight:bold">else</span> {
+            fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span>d is even<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, num)
+        }
+    }
+}
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="-操作符">| 操作符</h2>
+<p><code>|</code> 在它的整数操作符上进行或运算。它的特点是当一个为真时，结果为真，同假为假。</p>
+<pre><code>给定操作数a,b
+OR(a,b)=1; when a = 1 or b = 1 else = 0
+</code></pre><p>我们可以使用按位或运算符的性质来有选择地为给定整数设置某一位。例如，下列例子中，我们使用或运算将设置（从最低有效位到最高有校位）第3，第7和第8位为1。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">uint8</span> = <span style="color:#099">0</span>
+    a <span style="color:#000;font-weight:bold">|=</span> <span style="color:#099">196</span>
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span>b<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+}
+<span style="color:#998;font-style:italic">// prints 11000100
+</span></code></pre></td></tr></table>
+</div>
+</div><p>当位屏蔽操作为给定整数设置任意位时，使用或操作非常有用。例如，我们可以将上一个程序中存储于 <code>a</code> 中的值设置为更多位。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">uint8</span> = <span style="color:#099">0</span>
+  a <span style="color:#000;font-weight:bold">|=</span> <span style="color:#099">196</span>
+  a <span style="color:#000;font-weight:bold">|=</span> <span style="color:#099">3</span>
+  fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span>b<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+}
+<span style="color:#998;font-style:italic">// prints 11000111
+</span></code></pre></td></tr></table>
+</div>
+</div><h2 id="位作为配置">位作为配置</h2>
+<p>现在，回想一下<code>AND(a, 1) = a if and only if a = 1</code>。我们可以使用这个事实来查询某值的设置位。例如，上面代码中 <code>a &amp; 196</code> 返回 <code>196</code>，因为该值的位确实是在 <code>a</code> 中设置。因此，我们可以结合 OR 和 AND 来指定配置值并分别读取它们。</p>
+<p>下面的代码片断展示了这个工作。函数 <code>procstr</code> 转换字符串的值。它使用两个参数：第一个参数 <code>str</code> 是待转换的字符串，第二个参数 <code>conf</code> 是个整数，它使用位掩码指定多个转换配置。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">const</span> (
+    UPPER  = <span style="color:#099">1</span> <span style="color:#998;font-style:italic">// upper case
+</span><span style="color:#998;font-style:italic"></span>    LOWER  = <span style="color:#099">2</span> <span style="color:#998;font-style:italic">// lower case
+</span><span style="color:#998;font-style:italic"></span>    CAP    = <span style="color:#099">4</span> <span style="color:#998;font-style:italic">// capitalizes
+</span><span style="color:#998;font-style:italic"></span>    REV    = <span style="color:#099">8</span> <span style="color:#998;font-style:italic">// reverses
+</span><span style="color:#998;font-style:italic"></span>)
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#900;font-weight:bold">procstr</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span>HELLO PEOPLE!<span style="color:#a61717;background-color:#e3d2d2">”</span>, LOWER|REV|CAP))
+}
+<span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">procstr</span>(str <span style="color:#458;font-weight:bold">string</span>, conf <span style="color:#458;font-weight:bold">byte</span>) <span style="color:#458;font-weight:bold">string</span> {
+    <span style="color:#998;font-style:italic">// reverse string
+</span><span style="color:#998;font-style:italic"></span>    rev <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">func</span>(s <span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">string</span> {
+        runes <span style="color:#000;font-weight:bold">:=</span> []<span style="color:#0086b3">rune</span>(s)
+        n <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">len</span>(runes)
+        <span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; n<span style="color:#000;font-weight:bold">/</span><span style="color:#099">2</span>; i<span style="color:#000;font-weight:bold">++</span> {
+            runes[i], runes[n<span style="color:#000;font-weight:bold">-</span><span style="color:#099">1</span><span style="color:#000;font-weight:bold">-</span>i] = runes[n<span style="color:#000;font-weight:bold">-</span><span style="color:#099">1</span><span style="color:#000;font-weight:bold">-</span>i], runes[i]
+        }
+        <span style="color:#000;font-weight:bold">return</span> <span style="color:#0086b3">string</span>(runes)
+    }
+ 
+    <span style="color:#998;font-style:italic">// query config bits
+</span><span style="color:#998;font-style:italic"></span>    <span style="color:#000;font-weight:bold">if</span> (conf <span style="color:#000;font-weight:bold">&amp;</span> UPPER) <span style="color:#000;font-weight:bold">!=</span> <span style="color:#099">0</span> {
+        str = strings.<span style="color:#900;font-weight:bold">ToUpper</span>(str)
+    }
+    <span style="color:#000;font-weight:bold">if</span> (conf <span style="color:#000;font-weight:bold">&amp;</span> LOWER) <span style="color:#000;font-weight:bold">!=</span> <span style="color:#099">0</span> {
+        str = strings.<span style="color:#900;font-weight:bold">ToLower</span>(str)
+    }
+    <span style="color:#000;font-weight:bold">if</span> (conf <span style="color:#000;font-weight:bold">&amp;</span> CAP) <span style="color:#000;font-weight:bold">!=</span> <span style="color:#099">0</span> {
+        str = strings.<span style="color:#900;font-weight:bold">Title</span>(str)
+    }
+    <span style="color:#000;font-weight:bold">if</span> (conf <span style="color:#000;font-weight:bold">&amp;</span> REV) <span style="color:#000;font-weight:bold">!=</span> <span style="color:#099">0</span> {
+        str = <span style="color:#900;font-weight:bold">rev</span>(str)
+    }
+    <span style="color:#000;font-weight:bold">return</span> str
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>函数调用 <code>procstr(&quot;HELLO PEOPLE!&quot;, LOWER |REV|CAP)</code>将字符串转为小写，逆序并大写每个单词。这通过设置参数 <code>conf </code>的值为14，即设置第2，第3，和第4位完成。然后代码使用连续的 <code>if</code> 语句提取这些位并应用适当的字符串转换。</p>
+<h2 id="异或--操作">异或 ^ 操作</h2>
+<p>异常操作在Go中使用 <code>^</code>应用。它的属性为:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-javascript" data-lang="javascript">给定操作数 a, b
+XOR( a, b ) <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; 仅当 <span style="color:#000;font-weight:bold">if</span> a <span style="color:#000;font-weight:bold">!=</span> b 才为1<span style="color:#a61717;background-color:#e3d2d2">，</span>否则为0
+</code></pre></td></tr></table>
+</div>
+</div><p>这个定义的含义是， XOR 可以用于将位从一个值切换为另一个值 。例如，给定一个16位的值，我们可以使用如下代码切换首8位的值。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">uint16</span> = <span style="color:#099">0xCEFF</span>
+    a ^= <span style="color:#099">0xFF00</span> <span style="color:#998;font-style:italic">// same a = a ^ 0xFF00
+</span><span style="color:#998;font-style:italic"></span>}
+<span style="color:#998;font-style:italic">// a = 0xCEFF   (11001110 11111111)
+</span><span style="color:#998;font-style:italic">// a ^=0xFF00   (00110001 11111111)
+</span></code></pre></td></tr></table>
+</div>
+</div><p>上面程序片断，与 1 异或的位被翻转（从0到1或从1到0）。例如，XOR的一个实际用途是比较符号量，当 <code>(a^b )&gt;= 0</code> (或 <code>(a^b) &lt; 0</code> 表示相反符号)为真时，两个整数 <code>a</code>、<code>b</code> 具有相同的符号，如下所示：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    a, b <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">-</span><span style="color:#099">12</span>, <span style="color:#099">25</span>
+    fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span>a and b have same sign<span style="color:#a61717;background-color:#e3d2d2">?“</span>, (a ^ b) <span style="color:#000;font-weight:bold">&gt;=</span> <span style="color:#099">0</span>)
+}
+</code></pre></td></tr></table>
+</div>
+</div><p>当执行上面的程序，它将打印：<code>a and b have same sign? False</code>。</p>
+<h2 id="-按位补码not">^ 按位补码（NOT)</h2>
+<p>不像其他语言（c/c++，Java，Python，Javascript等），Go 没有专用的一元逐位补码运算符。相反，异或运算符 <code>^</code>也可以用作一元运算符，将补码应用于数字。给定位 <code>x</code>，在Go中 <code>^x = 1 ^ x</code>，该位反转。我们可以在下面的代码中看到这一点，该代码片断斂 <code>^a</code> 作为变量 a 的补码</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">byte</span> = <span style="color:#099">0x0F</span>
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, ^a)
+}
+
+<span style="color:#998;font-style:italic">// prints
+</span><span style="color:#998;font-style:italic">// 00001111     // var a
+</span><span style="color:#998;font-style:italic">// 11110000     // ^a
+</span></code></pre></td></tr></table>
+</div>
+</div><h2 id="-运算符-1">&amp;^ 运算符</h2>
+<p>运算符 <code>&amp;^</code>，读作 AND NOT，它是使用 <code>AND</code> 和 <code>NOT</code> 来操作它的操作数的简写形式。如下面的定义</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-javascript" data-lang="javascript">给定操作数 a, b
+AND_NOT(a,b) <span style="color:#000;font-weight:bold">=</span> AND(a,NOT(B))
+</code></pre></td></tr></table>
+</div>
+</div><p>它有一个有趣的特性，即如果第二个操作数是 1，清除第一个操作数中的位。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-javascript" data-lang="javascript">AND_NOT(a,<span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; clears a
+AND_NOT(a,<span style="color:#099">0</span>) <span style="color:#000;font-weight:bold">=</span> a;
+</code></pre></td></tr></table>
+</div>
+</div><p>下面代码片断使用 AND NOT 操作来清除变量 <code>a</code> 的低四位从 <code>1010 1011</code> 到 <code>1010 0000</code>。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">byte</span> = <span style="color:#099">0xAB</span>
+     fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;%08b\n&#34;</span>, a)
+     a <span style="color:#000;font-weight:bold">&amp;^=</span> <span style="color:#099">0x0F</span>
+     fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;%08b\n&#34;</span>, a)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// 10101011
+</span><span style="color:#998;font-style:italic">// 10100000
+</span></code></pre></td></tr></table>
+</div>
+</div><h2 id="左移--和-右移--操作符">左移 &laquo; 和 右移 &raquo; 操作符</h2>
+<p>类似其他C派生语言，Go 使用 <code>&lt;&lt;</code> 和 <code>&gt;&gt;</code> 表示左移和右移操作，相应的定义如下；</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-javascript" data-lang="javascript">给定整数操作数 a 和 n
+a <span style="color:#000;font-weight:bold">&lt;&lt;</span> n; 将 a 中所有的位左移n次
+a <span style="color:#000;font-weight:bold">&gt;&gt;</span> n; 将 a 中所有的位右移n次
+</code></pre></td></tr></table>
+</div>
+</div><p>例如，在下面的片断中，左移操作符用来将存储于 <code>a</code> (<code>00000011</code>) 向左移动 3 次。为了说明目的，每次将打印结果</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">int8</span> = <span style="color:#099">3</span>
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a<span style="color:#000;font-weight:bold">&lt;&lt;</span><span style="color:#099">1</span>)
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a<span style="color:#000;font-weight:bold">&lt;&lt;</span><span style="color:#099">2</span>)
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a<span style="color:#000;font-weight:bold">&lt;&lt;</span><span style="color:#099">3</span>)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// 00000011
+</span><span style="color:#998;font-style:italic">// 00000110
+</span><span style="color:#998;font-style:italic">// 00001100
+</span><span style="color:#998;font-style:italic">// 00011000
+</span></code></pre></td></tr></table>
+</div>
+</div><p>注意，每次移动，右边的第低有效位用零填充。相反地，使用右移操作符，值中的每一位都可以右移，左侧的第高有效位为零，如下面的示例所示（带符号的数字有一个异常，请参阅下面关于算术移位的说明）。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+ <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">uint8</span> = <span style="color:#099">120</span>
+ fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+ fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a<span style="color:#000;font-weight:bold">&gt;&gt;</span><span style="color:#099">1</span>)
+ fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a<span style="color:#000;font-weight:bold">&gt;&gt;</span><span style="color:#099">2</span>)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// 01111000
+</span><span style="color:#998;font-style:italic">// 00111100
+</span></code></pre></td></tr></table>
+</div>
+</div><p>使用左移和右移运算符可以完成一些最简单的技巧是乘法和除法，其中每个移位位置表示二的幂，例如下面将200（存储在 <code>a</code> 中）除以2</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    a <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">200</span>
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span>d<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a<span style="color:#000;font-weight:bold">&gt;&gt;</span><span style="color:#099">1</span>)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic"></span><span style="color:#099">100</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>或乘以4</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>(){
+  a <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">12</span>
+  fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;%d\n&#34;</span>, a <span style="color:#000;font-weight:bold">&lt;&lt;</span> <span style="color:#099">2</span>)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// 48
+</span></code></pre></td></tr></table>
+</div>
+</div><p>移位运算符提供了在二进制值的指定位置操作位的有效方法。例如，在下面的代码片段中，<code>|</code> 和 <code>&lt;&lt;</code> 运算符用于设置 <code>a</code> 的第 3 位。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">int8</span> = <span style="color:#099">8</span>
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+    a = a | (<span style="color:#099">1</span><span style="color:#000;font-weight:bold">&lt;&lt;</span><span style="color:#099">2</span>)
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">08</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// 00001000
+</span><span style="color:#998;font-style:italic">// 00001100
+</span></code></pre></td></tr></table>
+</div>
+</div><p>或联合移位和 <code>&amp;</code> 操作符来测试 <code>a</code> 的第 n 位是否被设置了值</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">int8</span> = <span style="color:#099">12</span>
+    <span style="color:#000;font-weight:bold">if</span> a<span style="color:#000;font-weight:bold">&amp;</span>(<span style="color:#099">1</span><span style="color:#000;font-weight:bold">&lt;&lt;</span><span style="color:#099">2</span>) <span style="color:#000;font-weight:bold">!=</span> <span style="color:#099">0</span> {
+        fmt.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span>take action<span style="color:#a61717;background-color:#e3d2d2">”</span>)
+    }
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// take action
+</span></code></pre></td></tr></table>
+</div>
+</div><p>使用 <code>&amp;^</code> 和移动操作符，可以取消某个值的第 <code>n</code> 位的设置，下面片段取消了变量 <code>a</code> 的第3位。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4">
+<table style="border-spacing:0;padding:0;margin:0;border:0;width:auto;overflow:auto;display:block;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+    <span style="color:#000;font-weight:bold">var</span> a <span style="color:#458;font-weight:bold">int8</span> = <span style="color:#099">13</span> 
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">04</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+    a = a <span style="color:#000;font-weight:bold">&amp;^</span> (<span style="color:#099">1</span> <span style="color:#000;font-weight:bold">&lt;&lt;</span> <span style="color:#099">2</span>)
+    fmt.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#a61717;background-color:#e3d2d2">“</span><span style="color:#000;font-weight:bold">%</span><span style="color:#099">04</span>b<span style="color:#a61717;background-color:#e3d2d2">\</span>n<span style="color:#a61717;background-color:#e3d2d2">”</span>, a)
+}
+<span style="color:#998;font-style:italic">// prints:
+</span><span style="color:#998;font-style:italic">// 1101
+</span><span style="color:#998;font-style:italic">// 1001
+</span></code></pre></td></tr></table>
+</div>
+</div><h2 id="关于算术移位的注记">关于算术移位的注记</h2>
+<p>当要移位的值（）是有符号值时，Go 自动执行应用算术移位。在右移操作中，符号位（2的补码）被复制（或扩展）以填充移位的槽。</p>
+<h2 id="结论">结论</h2>
+<p>与其他现代语言一样，Go 支持所有的按位运算符。这篇文章只提供了一小部分可以使用这些运算符的示例，可以在网上找到更多的内容，特别是Sean Eron Anderson的<a href="https://graphics.stanford.edu/~seander/bithacks.html"><em>Bit Twiddling Hacks</em></a></p>
+<p>参考：</p>
+<ol>
+<li><a href="https://dev.to/vladimirvivien/bit-hacking-with-go">Bit Hacking with Go</a></li>
+</ol>
+
+        </div>
+
+        
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/post/translate/go-runtime-scheduler/">Go运行时调度</a></li>
+        
+        <li><a href="/post/translate/developer-need-to-remeber-10-os-concepts/">开发人员需要知道的10个操作系统概念</a></li>
+        
+        <li><a href="/post/translate/cors/">跨域相关</a></li>
+        
+        <li><a href="/post/translate/clean-arch-summary-review/">尝试在Go中整理架构</a></li>
+        
+        <li><a href="/post/translate/structure-production-rest-api-in-go/">如何用go构建生产级rest api</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/tags/bit'>bit</a></li>
+                
+                <li><a href='/tags/translate'>translate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "yourdiscussshortname" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "your github repo"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2021 <a href="https://cyberwave.github.io">听雪者的博客 By 听雪者</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'GA ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+    <script src='/js/douban.js'></script>
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://cyberwave.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://cyberwave.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-3-gc-pacing/" title="Go语言的垃圾回收 第三部分 GC速度">Go语言的垃圾回收 第三部分 GC速度</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-2-gc-traces/" title="Go语言的垃圾回收：第二部分 GC追踪">Go语言的垃圾回收：第二部分 GC追踪</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/garbage-collection-in-go-part-1-semantics/" title="Go语言的垃圾回收：第一部分 语义">Go语言的垃圾回收：第一部分 语义</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-design-philosophy-data-and-semantics/" title="数据和语义的设计哲学">数据和语义的设计哲学</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-memory-profiling/" title="内存剖析的语言机制">内存剖析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-escape-analysis/" title="逃逸分析的语言机制">逃逸分析的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/translate/Language-mechanics-on-stacks-and-pointers/" title="栈和指针的语言机制">栈和指针的语言机制</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/2fa-auth-of-go/" title="2fa 双因素认证的Go实现">2fa 双因素认证的Go实现</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/go-known-network-collection/" title="Go知识网站集合">Go知识网站集合</a>
+    </li>
+    
+    <li>
+        <a href="https://cyberwave.github.io/post/Go-work-stealing-scheduler/" title="Go语言调度器的工作窃取">Go语言调度器的工作窃取</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://cyberwave.github.io/categories/blog/">blog (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/golang/">golang (25)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/http/">http (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/json/">json (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/k8s/">k8s (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/linux/">linux (1)</a></li>
+    
+    <li><a href="https://cyberwave.github.io/categories/mysql/">mysql (2)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://cyberwave.github.io/tags/auth/">auth</a>
+    
+    <a href="https://cyberwave.github.io/tags/bit/">bit</a>
+    
+    <a href="https://cyberwave.github.io/tags/blog/">blog</a>
+    
+    <a href="https://cyberwave.github.io/tags/clean-architecture/">clean architecture</a>
+    
+    <a href="https://cyberwave.github.io/tags/collection/">collection</a>
+    
+    <a href="https://cyberwave.github.io/tags/cors/">cors</a>
+    
+    <a href="https://cyberwave.github.io/tags/data/">data</a>
+    
+    <a href="https://cyberwave.github.io/tags/docker/">docker</a>
+    
+    <a href="https://cyberwave.github.io/tags/escape-analysis/">escape analysis</a>
+    
+    <a href="https://cyberwave.github.io/tags/gc/">gc</a>
+    
+    <a href="https://cyberwave.github.io/tags/golang/">golang</a>
+    
+    <a href="https://cyberwave.github.io/tags/grep/">grep</a>
+    
+    <a href="https://cyberwave.github.io/tags/http/">http</a>
+    
+    <a href="https://cyberwave.github.io/tags/json-ld/">json-ld</a>
+    
+    <a href="https://cyberwave.github.io/tags/k8s/">k8s</a>
+    
+    <a href="https://cyberwave.github.io/tags/mysql/">mysql</a>
+    
+    <a href="https://cyberwave.github.io/tags/os/">os</a>
+    
+    <a href="https://cyberwave.github.io/tags/profiling/">profiling</a>
+    
+    <a href="https://cyberwave.github.io/tags/runtime/">runtime</a>
+    
+    <a href="https://cyberwave.github.io/tags/scheduler/">scheduler</a>
+    
+    <a href="https://cyberwave.github.io/tags/select/">select</a>
+    
+    <a href="https://cyberwave.github.io/tags/stack/">stack</a>
+    
+    <a href="https://cyberwave.github.io/tags/timeout/">timeout</a>
+    
+    <a href="https://cyberwave.github.io/tags/trace/">trace</a>
+    
+    <a href="https://cyberwave.github.io/tags/translate/">translate</a>
+    
+    <a href="https://cyberwave.github.io/tags/translation/">translation</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E6%8C%87%E9%92%88/">指针</a>
+    
+    <a href="https://cyberwave.github.io/tags/%E8%B0%83%E5%BA%A6/">调度</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://www.flysnow.org/" title="飞雪无情的博客">飞雪无情的博客</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://www.qcrao.com/" title="码农桃花源">码农桃花源</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://draveness.me/" title="面向信仰编程">面向信仰编程</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://blog.haohtml.com/" title="学习日志">学习日志</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://imageslr.github.io/" title="Images&#39; Blog">Images&#39;s Blog</a>
+        </li>
+        
+        <li>
+            <a target="_blank" href="https://alim0x.gitbooks.io/awesome-linux-software-zh_cn/content/" title="超赞的 Linux 软件">超赞的 Linux 软件</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://cyberwave.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

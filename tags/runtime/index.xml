@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>runtime on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/runtime/</link>
+    <description>Recent content in runtime on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Tue, 24 Mar 2020 14:28:30 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/runtime/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Go运行时调度</title>
+      <link>https://cyberwave.github.io/post/translate/go-runtime-scheduler/</link>
+      <pubDate>Tue, 24 Mar 2020 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/go-runtime-scheduler/</guid>
+      <description>Illustrated Tales of Go Runtime Scheduler 以 goroutines的形式进行的Go语言的并发对于写现代并发软件是一种非常方便的方法。但是您的Go程序是如何有效地运行这些 goroutines 的</description>
+    </item>
+    
+  </channel>
+</rss>

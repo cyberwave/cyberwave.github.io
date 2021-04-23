@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>bit on 听雪者的博客</title>
+    <link>https://cyberwave.github.io/tags/bit/</link>
+    <description>Recent content in bit on 听雪者的博客</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Sat, 09 May 2020 14:28:30 +0800</lastBuildDate><atom:link href="https://cyberwave.github.io/tags/bit/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>黑客Go中的位操作</title>
+      <link>https://cyberwave.github.io/post/translate/bit-hacking-with-go/</link>
+      <pubDate>Sat, 09 May 2020 14:28:30 +0800</pubDate>
+      
+      <guid>https://cyberwave.github.io/post/translate/bit-hacking-with-go/</guid>
+      <description>在内存非常昂贵，处理器还处于奔腾系列的计算机旧年代，直接进行位操作是处理信息的首选（在某情情况下是唯一的选项）。如今，直接的位操作在许多计算</description>
+    </item>
+    
+  </channel>
+</rss>

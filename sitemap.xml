@@ -258,6 +258,36 @@
   </url>
   
   <url>
+    <loc>https://cyberwave.github.io/tags/bit/</loc>
+    <lastmod>2020-05-09T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/bit-hacking-with-go/</loc>
+    <lastmod>2020-05-09T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/translate/go-runtime-scheduler/</loc>
+    <lastmod>2020-03-24T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/tags/runtime/</loc>
+    <lastmod>2020-03-24T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/post/go-select/</loc>
+    <lastmod>2019-12-04T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cyberwave.github.io/tags/select/</loc>
+    <lastmod>2019-12-04T14:28:30+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://cyberwave.github.io/tags/os/</loc>
     <lastmod>2019-11-18T14:28:30+08:00</lastmod>
   </url>
